@@ -228,10 +228,7 @@ export const portalApi = createApi({
       }),
       transformResponse: (
         response:
-          | {
-              success?: boolean;
-              data?: UnitMembershipHistoryResponse;
-            }
+          | { success?: boolean; data?: UnitMembershipHistoryResponse }
           | UnitMembershipHistoryResponse
           | ResourceRecord[],
       ) => {
@@ -239,32 +236,25 @@ export const portalApi = createApi({
           return { allMemberships: response };
         }
 
-        if ("data" in response && response.data) {
-          return {
-            unit: response.data.unit ?? {},
-            currentOccupancy: response.data.currentOccupancy,
-            currentOwner: response.data.currentOwner ?? null,
-            currentTenant: response.data.currentTenant ?? null,
-            currentFamilyMembers: response.data.currentFamilyMembers ?? [],
-            previousFamilyMembers: response.data.previousFamilyMembers ?? [],
-            allFamilyMembers: response.data.allFamilyMembers ?? [],
-            previousOwners: response.data.previousOwners ?? [],
-            previousTenants: response.data.previousTenants ?? [],
-            allMemberships: response.data.allMemberships ?? [],
-          };
+        let res: UnitMembershipHistoryResponse;
+
+        if ("data" in response) {
+          res = response.data ?? {};
+        } else {
+          res = response as UnitMembershipHistoryResponse;
         }
 
         return {
-          unit: response.unit ?? {},
-          currentOccupancy: response.currentOccupancy,
-          currentOwner: response.currentOwner ?? null,
-          currentTenant: response.currentTenant ?? null,
-          currentFamilyMembers: response.currentFamilyMembers ?? [],
-          previousFamilyMembers: response.previousFamilyMembers ?? [],
-          allFamilyMembers: response.allFamilyMembers ?? [],
-          previousOwners: response.previousOwners ?? [],
-          previousTenants: response.previousTenants ?? [],
-          allMemberships: response.allMemberships ?? [],
+          unit: res.unit ?? {},
+          currentOccupancy: res.currentOccupancy,
+          currentOwner: res.currentOwner ?? null,
+          currentTenant: res.currentTenant ?? null,
+          currentFamilyMembers: res.currentFamilyMembers ?? [],
+          previousFamilyMembers: res.previousFamilyMembers ?? [],
+          allFamilyMembers: res.allFamilyMembers ?? [],
+          previousOwners: res.previousOwners ?? [],
+          previousTenants: res.previousTenants ?? [],
+          allMemberships: res.allMemberships ?? [],
         };
       },
       providesTags: (_result, _error, arg) => [

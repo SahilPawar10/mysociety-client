@@ -30,7 +30,7 @@ export const authSlice = createSlice({
   reducers: {
     setCredentials: (
       state,
-      action: PayloadAction<{ token: string | null; user: AuthUser | null }>
+      action: PayloadAction<{ token: string | null; user: AuthUser | null }>,
     ) => {
       state.token = action.payload.token;
       state.user = action.payload.user;
@@ -43,10 +43,13 @@ export const authSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    builder.addMatcher(authApi.endpoints.login.matchFulfilled, (state, { payload }) => {
-      state.user = payload.user ?? null;
-      state.isAuthenticated = Boolean(state.token);
-    });
+    builder.addMatcher(
+      authApi.endpoints.login.matchFulfilled,
+      (state, { payload }) => {
+        state.user = payload.user as AuthUser | null;
+        state.isAuthenticated = Boolean(state.token);
+      },
+    );
   },
 });
 
