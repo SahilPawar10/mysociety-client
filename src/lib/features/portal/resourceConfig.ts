@@ -47,18 +47,18 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
         type: "number",
         required: true,
       },
-      {
-        name: "floorsCount",
-        label: "Floors Count",
-        type: "number",
-        required: true,
-      },
-      {
-        name: "unitsCount",
-        label: "Units Count",
-        type: "number",
-        required: true,
-      },
+      // {
+      //   name: "floorsCount",
+      //   label: "Floors Count",
+      //   type: "number",
+      //   required: true,
+      // },
+      // {
+      //   name: "unitsCount",
+      //   label: "Units Count",
+      //   type: "number",
+      //   required: true,
+      // },
     ],
   },
   {
@@ -94,6 +94,18 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
     fields: [
       { name: "societyId", label: "Society", type: "number", required: true },
       { name: "name", label: "Wing Name", type: "text", required: true },
+      {
+        name: "floorNumber",
+        label: "Floor Number",
+        type: "number",
+        required: true,
+      },
+      {
+        name: "unitCount",
+        label: "unit Count",
+        type: "number",
+        required: true,
+      },
     ],
   },
   {
@@ -105,12 +117,6 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
     fields: [
       { name: "societyId", label: "Society", type: "number", required: true },
       { name: "wingId", label: "Wing", type: "number", required: true },
-      {
-        name: "floorNumber",
-        label: "Floor Number",
-        type: "number",
-        required: true,
-      },
       {
         name: "unitNumber",
         label: "Unit Number",

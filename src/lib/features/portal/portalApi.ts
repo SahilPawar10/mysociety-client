@@ -48,6 +48,7 @@ export type CreateUnitMembershipArg = {
 export type ResourceListArg = {
   resource: string;
   societyId?: number;
+  wingId?: number;
 };
 export type UnitMembershipHistoryArg = {
   societyId: number;
@@ -104,8 +105,15 @@ const needsSocietyInPath = (resource: string) => {
   );
 };
 
-const buildListUrl = (resource: string, societyId?: number) => {
+const buildListUrl = (
+  resource: string,
+  societyId?: number,
+  wingId?: number,
+) => {
   const base = resolveResourceRoute(resource);
+  if (resource === "unit" && wingId) {
+    return `${base}/${wingId}`;
+  }
   if (needsSocietyInPath(resource) && societyId) {
     return `${base}/${societyId}`;
   }
@@ -122,7 +130,7 @@ export const portalApi = createApi({
       if (token) {
         headers.set("authorization", `Bearer ${token}`);
       }
-      headers.set("content-type", "application/json");
+      // headers.set("content-type", "application/json");
       return headers;
     },
   }),
@@ -208,8 +216,8 @@ export const portalApi = createApi({
       providesTags: ["Dashboard"],
     }),
     getResourceList: builder.query<ResourceRecord[], ResourceListArg>({
-      query: ({ resource, societyId }) => ({
-        url: buildListUrl(resource, societyId),
+      query: ({ resource, societyId, wingId }) => ({
+        url: buildListUrl(resource, societyId, wingId),
         method: "GET",
       }),
       transformResponse: (response: ListResponse<ResourceRecord>) =>
@@ -355,6 +363,26 @@ export const portalApi = createApi({
         "Dashboard",
       ],
     }),
+    importFile: builder.mutation<
+      ResourceRecord,
+      { url: string; data: FormData }
+    >({
+      query: ({ url, data }) => ({
+        url,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, arg) => [
+        { type: "ResourceList", id: "unit" },
+      ],
+    }),
+    exportFile: builder.mutation<Blob, string>({
+      query: (url) => ({
+        url,
+        method: "GET",
+        responseHandler: (response) => response.blob(),
+      }),
+    }),
   }),
 });
 
@@ -367,4 +395,6 @@ export const {
   useUpdateResourceMutation,
   useDeleteResourceMutation,
   usePurchaseSubscriptionMutation,
+  useImportFileMutation,
+  useExportFileMutation,
 } = portalApi;

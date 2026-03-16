@@ -4,14 +4,17 @@ import { useMemo, useState } from "react";
 import {
   useCreateResourceMutation,
   useCreateUnitMembershipMutation,
+  useExportFileMutation,
   useGetResourceListQuery,
   useGetUnitMembershipHistoryQuery,
+  useImportFileMutation,
   useUpdateResourceMutation,
   type ResourceRecord,
 } from "@/lib/features/portal/portalApi";
 import { useAppSelector } from "@/lib/hooks";
 import { useDispatch } from "react-redux";
 import { portalApi } from "@/lib/features/portal/portalApi";
+import ImportExportActions from "@/components/importexport/page";
 
 const toNumber = (value: unknown) => {
   const n = Number(value);
@@ -68,6 +71,8 @@ export default function UnitHomesPage() {
   const isSocietyAdmin = role === "SOCIETY_ADMIN";
 
   const [selectedSocietyId, setSelectedSocietyId] = useState<string>("");
+  const [selectedWingId, setSelectedWingId] = useState<string>("");
+
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [unitModalView, setUnitModalView] = useState<
     "list" | "form" | "family-form" | "create-unit" | "edit-unit" | "history"
@@ -120,14 +125,18 @@ export default function UnitHomesPage() {
     { skip: false },
   );
 
-  const { data: units = [], isLoading } = useGetResourceListQuery(
-    { resource: "unit", societyId: effectiveSocietyId || undefined },
-    { skip: !effectiveSocietyId },
-  );
-
   const { data: wings = [] } = useGetResourceListQuery(
     { resource: "wing", societyId: effectiveSocietyId || undefined },
     { skip: !effectiveSocietyId },
+  );
+
+  const { data: units = [], isLoading } = useGetResourceListQuery(
+    {
+      resource: "unit",
+      // societyId: effectiveSocietyId || undefined,
+      wingId: Number(selectedWingId) || undefined, // 👈 add this
+    },
+    { skip: !selectedWingId },
   );
 
   // const { data: membershipsScoped = [] } = useGetResourceListQuery(
@@ -156,6 +165,50 @@ export default function UnitHomesPage() {
     { resource: "user", societyId: effectiveSocietyId || undefined },
     { skip: !effectiveSocietyId },
   );
+
+  const [importFile] = useImportFileMutation();
+  const [exportFile] = useExportFileMutation();
+
+  const handleImport = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      await importFile({
+        url: `/v1/unit/import?societyId=${effectiveSocietyId}`,
+        data: formData,
+      }).unwrap();
+    } catch (error) {
+      console.log(error, "error while importing");
+    }
+  };
+
+  const handleExport = async () => {
+    const blob = await exportFile("/units/export").unwrap();
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "units.xlsx";
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleTemplateDownload = async () => {
+    const blob = await exportFile(
+      `/v1/unit/import/template?societyId=${effectiveSocietyId}`,
+    ).unwrap();
+
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "units-template.xlsx";
+    a.click();
+
+    window.URL.revokeObjectURL(url);
+  };
+
   const users = useMemo(() => {
     if (!effectiveSocietyId) {
       return [];
@@ -168,6 +221,7 @@ export default function UnitHomesPage() {
       return societyId === 0 || societyId === effectiveSocietyId;
     });
   }, [effectiveSocietyId, usersAll]);
+
   const [createResource, { isLoading: isAddingMember }] =
     useCreateUnitMembershipMutation();
   const [createUnitResource, { isLoading: isCreatingUnit }] =
@@ -182,7 +236,11 @@ export default function UnitHomesPage() {
     [societies, effectiveSocietyId],
   );
 
-  const unitsCount = toNumber(selectedSociety?.unitsCount);
+  const selectedWing = useMemo(() => {
+    return wings.find((w) => Number(w.id) === Number(selectedWingId));
+  }, [wings, selectedWingId]);
+
+  const unitsCount = toNumber(selectedWing?.unitCount);
 
   const sortedUnits = useMemo(() => {
     return [...units].sort((a, b) => toNumber(a.id) - toNumber(b.id));
@@ -252,6 +310,7 @@ export default function UnitHomesPage() {
     }
     return selectedUnitId ? (membersByUnitId.get(selectedUnitId) ?? []) : [];
   }, [membersByUnitId, selectedUnitId]);
+
   const selectedUnitIdNumber = toNumber(selectedUnit?.id);
   const { data: residentHistoryData, isLoading: isHistoryLoading } =
     useGetUnitMembershipHistoryQuery(
@@ -549,46 +608,79 @@ export default function UnitHomesPage() {
         </div>
       </div>
 
-      {isSuperAdmin ? (
-        <div className="bg-white rounded-xl shadow-sm p-4 max-w-md">
-          <label className="block text-sm font-medium mb-1">
-            Select Society
-          </label>
-          <select
-            value={selectedSocietyId}
-            onChange={(e) => {
-              setSelectedSocietyId(e.target.value);
-              setSelectedUnitId(null);
-              setUnitModalView("list");
-            }}
-            className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-          >
-            <option value="">Select society</option>
-            {societies.map((s) => (
-              <option key={String(s.id)} value={String(s.id)}>
-                {String(s.name ?? `Society ${s.id}`)}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-
-      {!effectiveSocietyId ? (
-        <div className="bg-white rounded-xl shadow-sm p-6 text-slate-600">
-          Select a society to view homes.
-        </div>
-      ) : (
-        <>
-          <div className="bg-white rounded-xl shadow-sm p-4 text-sm text-slate-600">
-            Planned units: <span className="font-semibold">{unitsCount}</span> |
-            Created units:{" "}
-            <span className="font-semibold">{sortedUnits.length}</span>
+      <div className="flex gap-4 flex-wrap">
+        {/* Society Dropdown */}
+        {isSuperAdmin && (
+          <div className="bg-white rounded-xl shadow-sm p-4 flex-1 min-w-[250px]">
+            <label className="block text-sm font-medium mb-1">
+              Select Society
+            </label>
+            <select
+              value={selectedSocietyId}
+              onChange={(e) => {
+                setSelectedSocietyId(e.target.value);
+                setUnitModalView("list");
+              }}
+              className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+            >
+              <option value="">Select society</option>
+              {societies.map((s) => (
+                <option key={String(s.id)} value={String(s.id)}>
+                  {String(s.name ?? `Society ${s.id}`)}
+                </option>
+              ))}
+            </select>
           </div>
+        )}
 
-          {isLoading ? (
-            <p className="text-slate-600">Loading homes...</p>
-          ) : null}
+        {/* Wing Dropdown */}
+        {effectiveSocietyId ? (
+          <>
+            <div className="bg-white rounded-xl shadow-sm p-4 flex-1 min-w-[250px]">
+              <label className="block text-sm font-medium mb-1">
+                Select Wing
+              </label>
+              <select
+                value={selectedWingId}
+                onChange={(e) => {
+                  setSelectedWingId(e.target.value);
+                  setSelectedUnitId(null);
+                  setUnitModalView("list");
+                }}
+                className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+              >
+                <option value="">Select Wing</option>
+                {wings.map((w) => (
+                  <option key={String(w.id)} value={String(w.id)}>
+                    {String(w.name ?? `Wing ${w.id}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        ) : null}
+      </div>
+      {selectedWingId ? (
+        <>
+          {" "}
+          <div className="flex items-center justify-between gap-4 mb-4">
+            {/* Stats Card */}
+            <div className="bg-white rounded-xl shadow-sm px-4 py-3 text-sm text-slate-600">
+              Planned units: <span className="font-semibold">{unitsCount}</span>
+              <span className="mx-2 text-slate-400">|</span>
+              Created units:{" "}
+              <span className="font-semibold">{sortedUnits.length}</span>
+            </div>
 
+            {/* Import Export Buttons */}
+            <div className="flex items-center gap-2">
+              <ImportExportActions
+                onImport={handleImport}
+                onExport={handleExport}
+                templateDownload={handleTemplateDownload}
+              />
+            </div>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-4">
             {homeSlots.map(({ slot, unit }) => {
               const unitId = toId(unit?.id);
@@ -651,7 +743,6 @@ export default function UnitHomesPage() {
               );
             })}
           </div>
-
           {selectedUnitId ? (
             <div
               className="fixed inset-0 z-50 bg-black/40 p-4 flex items-center justify-center"
@@ -1525,7 +1616,7 @@ export default function UnitHomesPage() {
             </div>
           ) : null}
         </>
-      )}
+      ) : null}
     </section>
   );
 }

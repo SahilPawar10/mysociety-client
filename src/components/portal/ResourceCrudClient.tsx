@@ -5,6 +5,8 @@ import {
   useCreateResourceMutation,
   useDeleteResourceMutation,
   useGetResourceListQuery,
+  useExportFileMutation,
+  useImportFileMutation,
   useUpdateResourceMutation,
   type ResourceRecord,
 } from "@/lib/features/portal/portalApi";
@@ -14,6 +16,7 @@ import {
   type ResourceField,
 } from "@/lib/features/portal/resourceConfig";
 import { useAppSelector } from "@/lib/hooks";
+import ImportExportActions from "@/components/importexport/page";
 
 type Props = {
   resource: string;
@@ -146,6 +149,8 @@ export default function ResourceCrudClient({ resource }: Props) {
     useUpdateResourceMutation();
   const [deleteResource, { isLoading: isDeleting }] =
     useDeleteResourceMutation();
+  const [importFile] = useImportFileMutation();
+  const [exportFile] = useExportFileMutation();
 
   const canWrite = useMemo(() => {
     if (isSuperAdmin) {
@@ -515,6 +520,52 @@ export default function ResourceCrudClient({ resource }: Props) {
     }
   };
 
+  const handleMembershipImport = async (file: File) => {
+    if (!effectiveSocietyId) {
+      return;
+    }
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      await importFile({
+        url: `/v1/unit-membership/import?societyId=${effectiveSocietyId}`,
+        data: formData,
+      }).unwrap();
+    } catch {
+      setFeedback("Import failed.");
+    }
+  };
+
+  const handleMembershipExport = async () => {
+    const blob = await exportFile("/unit-membership/export").unwrap();
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "unit-memberships.xlsx";
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleMembershipTemplateDownload = async () => {
+    if (!effectiveSocietyId) {
+      return;
+    }
+    const blob = await exportFile(
+      `/v1/unit-membership/import/template?societyId=${effectiveSocietyId}`,
+    ).unwrap();
+
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "unit-memberships-template.xlsx";
+    a.click();
+
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <section className="space-y-5 min-w-0">
       <div className="flex items-center justify-between">
@@ -525,18 +576,27 @@ export default function ResourceCrudClient({ resource }: Props) {
           <p className="text-sm text-slate-500">{config.description}</p>
         </div>
         {isApiEnabled ? (
-          <button
-            type="button"
-            onClick={openCreate}
-            disabled={!canCreate}
-            className={`px-4 py-2 rounded-lg text-white ${
-              canCreate
-                ? "bg-rose-500 hover:bg-rose-600"
-                : "bg-slate-300 cursor-not-allowed"
-            }`}
-          >
-            Add New
-          </button>
+          <div className="flex items-center gap-2">
+            {resource === "unit-membership" ? (
+              <ImportExportActions
+                onImport={handleMembershipImport}
+                onExport={handleMembershipExport}
+                templateDownload={handleMembershipTemplateDownload}
+              />
+            ) : null}
+            <button
+              type="button"
+              onClick={openCreate}
+              disabled={!canCreate}
+              className={`px-4 py-2 rounded-lg text-white ${
+                canCreate
+                  ? "bg-rose-500 hover:bg-rose-600"
+                  : "bg-slate-300 cursor-not-allowed"
+              }`}
+            >
+              Add New
+            </button>
+          </div>
         ) : null}
       </div>
 
