@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MySociety Client",
-  description: "Auth and portal client",
+  title: "MySociety",
+  description: "Society management for admins and residents",
 };
 
 export default function RootLayout({

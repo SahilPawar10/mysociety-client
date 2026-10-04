@@ -3,9 +3,27 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
-import { logout } from "@/lib/features/auth/authSlice";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { signOut } from "firebase/auth";
+import { auth } from "../../../firebase";
+import { useAppSelector } from "@/lib/hooks";
 import { RESOURCE_CONFIGS } from "@/lib/features/portal/resourceConfig";
+
+// What a MEMBER may open; the backend refuses the rest (users, memberships, family members…).
+const MEMBER_RESOURCES = ["complaint", "maintenance-bill", "society-expense"];
+
+const GROUPS: { title: string; keys: string[] }[] = [
+  { title: "Society", keys: ["society", "subscription", "wing", "unit", "unit-membership", "family-member", "user"] },
+  { title: "Finance", keys: ["maintenance-bill", "society-expense"] },
+  { title: "Help desk", keys: ["complaint"] },
+];
+
+const ROLE_LABEL: Record<string, string> = {
+  SUPER_ADMIN: "Super admin",
+  SOCIETY_ADMIN: "Society admin",
+  MEMBER: "Resident",
+};
+
+type NavItem = { href: string; label: string };
 
 export default function PortalLayout({
   children,
@@ -14,99 +32,139 @@ export default function PortalLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const dispatch = useAppDispatch();
 
-  const token = useAppSelector((state) => state.auth.token);
+  const status = useAppSelector((state) => state.auth.status);
   const user = useAppSelector((state) => state.auth.user);
-  const role = String(user?.role ?? "").toUpperCase();
+  const role = user?.role;
   const isSuperAdmin = role === "SUPER_ADMIN";
 
-  const menuItems = useMemo(() => {
-    const base = [{ href: "/portal", label: "Dashboard" }];
-    const filteredResources = RESOURCE_CONFIGS.filter((resource) => {
+  const sections = useMemo(() => {
+    const allowed = RESOURCE_CONFIGS.filter((resource) => {
       if (isSuperAdmin) {
         return true;
       }
-      return resource.key !== "subscription";
-    }).map((resource) => ({
-      href: resource.path,
-      label: resource.label,
-    }));
+      if (role === "SOCIETY_ADMIN") {
+        return resource.key !== "subscription";
+      }
+      return MEMBER_RESOURCES.includes(resource.key);
+    });
 
-    const extra = isSuperAdmin ? [{ href: "/portal/purchase", label: "Purchase" }] : [];
-
-    return [...base, ...filteredResources, ...extra, { href: "/portal/profile", label: "Profile" }];
-  }, [isSuperAdmin]);
-
-  const isAuthed = useMemo(() => {
-    if (token) {
-      return true;
+    const overview: NavItem[] = [{ href: "/portal", label: "Dashboard" }];
+    if (isSuperAdmin) {
+      overview.push({ href: "/portal/onboard-society", label: "Onboard society" });
     }
 
-    if (typeof window === "undefined") {
-      return false;
-    }
-
-    return Boolean(localStorage.getItem("authData"));
-  }, [token]);
+    return [
+      { title: "Overview", items: overview },
+      ...GROUPS.map((group) => ({
+        title: group.title,
+        items: allowed
+          .filter((resource) => group.keys.includes(resource.key))
+          .map((resource) => ({ href: resource.path, label: resource.label })),
+      })),
+      { title: "Account", items: [{ href: "/portal/profile", label: "Profile" }] },
+    ].filter((section) => section.items.length > 0);
+  }, [isSuperAdmin, role]);
 
   useEffect(() => {
-    if (!isAuthed) {
+    if (status === "anonymous") {
       router.replace("/signin");
     }
-  }, [isAuthed, router]);
+  }, [status, router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("authData");
-    dispatch(logout());
-    router.push("/signin");
-  };
+  // AuthInitializer resets state and the effect above redirects.
+  const handleLogout = () => signOut(auth);
 
-  if (!isAuthed) {
-    return null;
+  if (status !== "authenticated") {
+    return (
+      <div className="min-h-screen flex items-center justify-center gap-3 text-slate-500">
+        <span className="h-5 w-5 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
+        Loading your society...
+      </div>
+    );
   }
 
+  const isActive = (href: string) =>
+    href === "/portal" ? pathname === href : pathname.startsWith(href);
+  const displayName = user?.name || user?.email || user?.phone || "User";
+
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800">
-      <div className="flex min-h-screen min-w-0">
-        <aside className="w-72 bg-gradient-to-b from-rose-500 to-rose-700 text-white p-6 flex flex-col">
-          <h1 className="text-2xl font-semibold tracking-wide mb-8">MySociety Portal</h1>
-          <nav className="space-y-2 flex-1">
-            {menuItems.map((item) => {
-              const active = item.href === "/portal" ? pathname === item.href : pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`block px-4 py-2 rounded-lg transition ${
-                    active ? "bg-white text-rose-600 font-semibold" : "hover:bg-rose-400/40"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+    <div className="min-h-screen md:flex">
+      <aside className="hidden md:flex md:w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
+        <div className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-100">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-sm font-bold text-white">
+            M
+          </span>
+          <span className="font-semibold text-slate-900">MySociety</span>
+        </div>
 
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="mt-8 bg-white text-rose-600 py-2 rounded-lg font-medium hover:bg-rose-100 transition"
-          >
-            Logout
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+          {sections.map((section) => (
+            <div key={section.title}>
+              <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                {section.title}
+              </p>
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`block rounded-lg px-3 py-2 text-sm transition ${
+                      isActive(item.href)
+                        ? "bg-brand-50 text-brand-800 font-medium"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        <div className="border-t border-slate-100 p-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-100 text-sm font-semibold text-brand-800">
+              {displayName.charAt(0).toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-slate-800">{displayName}</p>
+              <p className="text-xs text-slate-500">{ROLE_LABEL[role ?? ""] ?? role}</p>
+            </div>
+          </div>
+          <button type="button" onClick={handleLogout} className="btn-secondary w-full mt-3">
+            Log out
           </button>
-        </aside>
+        </div>
+      </aside>
 
-        <main className="flex-1 min-w-0 p-6 md:p-8 overflow-x-hidden">
-          <header className="bg-white rounded-xl shadow-sm p-4 mb-6 flex justify-between items-center">
-            <p className="text-sm text-slate-500">Signed in as</p>
-            <p className="font-medium text-slate-700">
-              {user?.name || user?.email || user?.phone || "User"}
-            </p>
-          </header>
-          {children}
-        </main>
-      </div>
+      {/* Mobile: top bar + scrollable menu */}
+      <header className="md:hidden sticky top-0 z-40 border-b border-slate-200 bg-white">
+        <div className="flex items-center justify-between px-4 h-14">
+          <span className="font-semibold text-slate-900">MySociety</span>
+          <button type="button" onClick={handleLogout} className="btn-ghost btn-sm">
+            Log out
+          </button>
+        </div>
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-2">
+          {sections.flatMap((section) => section.items).map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${
+                isActive(item.href) ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      </header>
+
+      <main className="flex-1 min-w-0 overflow-x-hidden">
+        <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8">{children}</div>
+      </main>
     </div>
   );
 }

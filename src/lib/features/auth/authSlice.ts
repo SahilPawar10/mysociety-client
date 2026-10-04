@@ -1,57 +1,43 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { authApi } from "./authApi";
-
-type AuthUser = {
-  id?: string | number;
-  name?: string;
-  phone?: string;
-  email?: string;
-  role?: string;
-  isActive?: boolean;
-  societyId?: number;
-  firebaseUid?: string;
-};
+import type { AuthUser } from "./authApi";
 
 type AuthState = {
-  token: string | null;
+  // "loading" until Firebase has restored (or not) the previous session.
+  status: "loading" | "authenticated" | "anonymous";
   user: AuthUser | null;
   isAuthenticated: boolean;
+  error: string | null;
 };
 
 const initialState: AuthState = {
-  token: null,
+  status: "loading",
   user: null,
   isAuthenticated: false,
+  error: null,
 };
 
 export const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setCredentials: (
-      state,
-      action: PayloadAction<{ token: string | null; user: AuthUser | null }>,
-    ) => {
-      state.token = action.payload.token;
-      state.user = action.payload.user;
-      state.isAuthenticated = Boolean(action.payload.token);
+    signedIn: (state, action: PayloadAction<AuthUser>) => {
+      state.status = "authenticated";
+      state.user = action.payload;
+      state.isAuthenticated = true;
+      state.error = null;
     },
-    logout: (state) => {
-      state.token = null;
+    // Without a message the previous error stays: signOut() after a failed login fires this again.
+    signedOut: (state, action: PayloadAction<string | undefined>) => {
+      state.status = "anonymous";
       state.user = null;
       state.isAuthenticated = false;
+      state.error = action.payload ?? state.error;
     },
-  },
-  extraReducers: (builder) => {
-    builder.addMatcher(
-      authApi.endpoints.login.matchFulfilled,
-      (state, { payload }) => {
-        state.user = payload.user as AuthUser | null;
-        state.isAuthenticated = Boolean(state.token);
-      },
-    );
+    clearAuthError: (state) => {
+      state.error = null;
+    },
   },
 });
 
-export const { setCredentials, logout } = authSlice.actions;
+export const { signedIn, signedOut, clearAuthError } = authSlice.actions;
 export default authSlice.reducer;

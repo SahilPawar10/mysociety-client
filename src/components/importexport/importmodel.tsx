@@ -1,96 +1,214 @@
 import { useState } from "react";
+import {
+  useExportFileMutation,
+  useImportFileMutation,
+  type ImportResult,
+} from "@/lib/features/portal/portalApi";
+import { downloadBlob, errorMessage } from "@/lib/api";
+import type { ImportKind } from "./page";
+
+const IMPORTS = {
+  unit: {
+    title: "Import Units",
+    path: "/v1/unit/import",
+    template: "/v1/unit/import/template",
+    templateFile: "unit-import-template.xlsx",
+    help: "One row per flat. New wing names are created automatically.",
+  },
+  "unit-membership": {
+    title: "Import Residents",
+    path: "/v1/unit-membership/import",
+    template: "/v1/unit-membership/import/template",
+    templateFile: "resident-import-template.xlsx",
+    help: "One row per person. relation SELF (or empty) = owner/tenant, who needs a phone or email to log in. Wife, Son… = their family.",
+  },
+} as const;
 
 type Props = {
-  open: boolean;
+  kind: ImportKind;
+  societyId: number;
   onClose: () => void;
-  onImport: (file: File) => Promise<void>;
-  templateDownload?: () => Promise<void>;
 };
 
-export default function ImportModal({
-  open,
-  onClose,
-  onImport,
-  templateDownload,
-}: Props) {
+/** Pick file → Preview (dry run, nothing saved) → Import → result. */
+export default function ImportModal({ kind, societyId, onClose }: Props) {
+  const config = IMPORTS[kind];
   const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState<ImportResult | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
+  const [error, setError] = useState("");
 
-  if (!open) return null;
+  const [importFile, { isLoading }] = useImportFileMutation();
+  const [exportFile] = useExportFileMutation();
 
-  const handleImport = async () => {
-    if (!file) return;
-
-    try {
-      setLoading(true);
-      await onImport(file);
-    } catch (error) {
-      setLoading(false);
+  const run = async (dryRun: boolean) => {
+    if (!file) {
+      return;
     }
-    // setLoading(true);
-    // await onImport(file);
-    setLoading(false);
-    onClose();
+    setError("");
+    try {
+      const data = await importFile({ path: config.path, societyId, file, dryRun }).unwrap();
+      if (dryRun) {
+        setPreview(data);
+      } else {
+        setResult(data);
+      }
+    } catch (err) {
+      setError(errorMessage(err, "Import failed."));
+    }
   };
 
+  const downloadTemplate = async () => {
+    setError("");
+    try {
+      const blob = await exportFile(`${config.template}?societyId=${societyId}`).unwrap();
+      downloadBlob(blob, config.templateFile);
+    } catch (err) {
+      setError(errorMessage(err, "Template download failed."));
+    }
+  };
+
+  const shown = result ?? preview;
+  const willImport = (r: ImportResult) =>
+    (r.insertedCount ?? 0) + (r.membershipsCreated ?? 0) + (r.familyMembersCreated ?? 0);
+
+  const summary = (r: ImportResult) =>
+    kind === "unit"
+      ? [
+          [r.insertedCount ?? 0, "units"],
+          [r.wingsCreated?.length ?? 0, "new wings"],
+          [r.skipped.length, "skipped"],
+        ]
+      : [
+          [r.membershipsCreated ?? 0, "owners / tenants"],
+          [r.familyMembersCreated ?? 0, "family members"],
+          [r.skipped.length, "skipped"],
+        ];
+
+  const step = result ? 3 : preview ? 2 : 1;
+
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-xl w-[450px] p-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-800">
-            Import Excel File
-          </h2>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal max-w-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">{config.title}</h2>
+            <p className="mt-1 text-sm text-slate-500">{config.help}</p>
+          </div>
+          <button type="button" onClick={onClose} className="btn-ghost btn-sm" aria-label="Close">
+            ✕
+          </button>
+        </div>
 
-          {templateDownload && (
+        <ol className="mt-5 flex items-center gap-2 text-xs">
+          {["Choose file", "Preview", "Done"].map((label, i) => (
+            <li key={label} className="flex items-center gap-2">
+              <span
+                className={`grid h-5 w-5 place-items-center rounded-full font-semibold ${
+                  step > i ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {i + 1}
+              </span>
+              <span className={step > i ? "text-slate-800" : "text-slate-400"}>{label}</span>
+              {i < 2 ? <span className="mx-1 h-px w-6 bg-slate-200" /> : null}
+            </li>
+          ))}
+        </ol>
+
+        {!result ? (
+          <div className="mt-5 space-y-2">
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={(e) => {
+                setFile(e.target.files?.[0] ?? null);
+                setPreview(null);
+                setError("");
+              }}
+              className="file-input"
+            />
+            <p className="hint">
+              Don&apos;t have the sheet?{" "}
+              <button type="button" onClick={downloadTemplate} className="link">
+                Download the template
+              </button>{" "}
+              (already filled with your society&apos;s data).
+            </p>
+          </div>
+        ) : null}
+
+        {error ? <p className="mt-4 alert-error">{error}</p> : null}
+
+        {shown ? (
+          <div className="mt-5 space-y-4">
+            <p className={result ? "alert-success" : "alert-warn"}>
+              {result
+                ? "Import finished."
+                : "Preview only: nothing is saved until you click Import."}
+              {shown.wingsCreated?.length ? ` New wings: ${shown.wingsCreated.join(", ")}.` : ""}
+            </p>
+
+            <div className="grid grid-cols-3 gap-3">
+              {summary(shown).map(([value, label]) => (
+                <div key={label} className="rounded-xl border border-slate-200 p-3 text-center">
+                  <p className="text-2xl font-semibold text-slate-900">{value}</p>
+                  <p className="text-xs text-slate-500">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {shown.skipped.length ? (
+              <div className="rounded-xl border border-slate-200 overflow-hidden">
+                <div className="max-h-64 overflow-y-auto">
+                  <table className="table">
+                    <thead className="sticky top-0">
+                      <tr>
+                        <th className="w-24">Excel row</th>
+                        <th>Why it was skipped</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shown.skipped.map((s) => (
+                        <tr key={`${s.rowNumber}-${s.reason}`}>
+                          <td className="font-mono text-slate-500">{s.rowNumber}</td>
+                          <td>{s.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="btn-secondary">
+            {result ? "Close" : "Cancel"}
+          </button>
+
+          {!result && !preview ? (
             <button
-              onClick={templateDownload}
-              className="text-sm text-red-500 hover:text-red-600 font-medium"
+              type="button"
+              onClick={() => run(true)}
+              disabled={!file || isLoading}
+              className="btn-primary"
             >
-              Download Template
+              {isLoading ? "Checking..." : "Preview"}
             </button>
-          )}
-        </div>
+          ) : null}
 
-        {/* File Upload */}
-        <div className="mt-3">
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="block w-full text-sm text-gray-600
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-lg file:border-0
-            file:text-sm file:font-semibold
-            file:bg-gray-100 file:text-gray-700
-            hover:file:bg-gray-200"
-          />
-        </div>
-
-        {file && (
-          <p className="text-xs text-gray-500 mt-2">Selected: {file.name}</p>
-        )}
-
-        {/* Buttons */}
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
-          >
-            Cancel
-          </button>
-
-          <button
-            onClick={handleImport}
-            disabled={!file || loading}
-            className={`px-4 py-2 rounded-lg text-white font-medium transition ${
-              !file || loading
-                ? "bg-gray-300 cursor-not-allowed"
-                : "bg-red-500 hover:bg-red-600"
-            }`}
-          >
-            {loading ? "Importing..." : "Import"}
-          </button>
+          {!result && preview ? (
+            <button
+              type="button"
+              onClick={() => run(false)}
+              disabled={isLoading || willImport(preview) === 0}
+              className="btn-primary"
+            >
+              {isLoading ? "Importing..." : `Import ${willImport(preview)} records`}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

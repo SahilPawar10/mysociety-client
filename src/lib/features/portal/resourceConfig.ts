@@ -19,6 +19,13 @@ export type ResourceField = {
   options?: FieldOption[];
 };
 
+export type TableColumn = {
+  name: string;
+  label: string;
+  /** Computed cell text; otherwise the row value (relation ids are shown by name). */
+  value?: (row: Record<string, unknown>) => string;
+};
+
 export type ResourceConfig = {
   key: string;
   label: string;
@@ -26,6 +33,8 @@ export type ResourceConfig = {
   description: string;
   apiRoute?: string;
   fields: ResourceField[];
+  /** Table columns; defaults to the first form fields. */
+  columns?: TableColumn[];
 };
 
 export const RESOURCE_CONFIGS: ResourceConfig[] = [
@@ -94,18 +103,8 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
     fields: [
       { name: "societyId", label: "Society", type: "number", required: true },
       { name: "name", label: "Wing Name", type: "text", required: true },
-      {
-        name: "floorNumber",
-        label: "Floor Number",
-        type: "number",
-        required: true,
-      },
-      {
-        name: "unitCount",
-        label: "unit Count",
-        type: "number",
-        required: true,
-      },
+      { name: "floorsCount", label: "Floors", type: "number" },
+      { name: "unitCount", label: "Max units (0 = no limit)", type: "number" },
     ],
   },
   {
@@ -123,7 +122,8 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
         type: "text",
         required: true,
       },
-      { name: "parkingSlots", label: "Parking Slots", type: "number" },
+      { name: "floorNumber", label: "Floor", type: "number", required: true },
+      { name: "parkingSlots", label: "Parking Slots", type: "text" },
       { name: "areaSqft", label: "Area (Sqft)", type: "number" },
     ],
   },
@@ -133,12 +133,20 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
     path: "/portal/unit-membership",
     description: "Manage unit memberships.",
     apiRoute: "/v1/unit-membership",
+    columns: [
+      { name: "userName", label: "Resident" },
+      { name: "unit", label: "Unit", value: (r) => [r.wingName, r.roomNo].filter(Boolean).join(" - ") || "—" },
+      { name: "type", label: "Type" },
+      { name: "startDate", label: "From" },
+      { name: "endDate", label: "To" },
+      { name: "isActive", label: "Current" },
+    ],
     fields: [
       { name: "societyId", label: "Society", type: "number", required: true },
       { name: "unitId", label: "Unit", type: "number", required: true },
       { name: "userName", label: "User Name", type: "text", required: true },
-      { name: "userPhone", label: "User Phone", type: "text" },
-      { name: "userEmail", label: "User Email", type: "text" },
+      { name: "userPhone", label: "Mobile (for login)", type: "text" },
+      { name: "userEmail", label: "Email (if no mobile)", type: "text" },
       {
         name: "type",
         label: "Membership Type",
@@ -149,6 +157,8 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
           { label: "TENANT", value: "TENANT" },
         ],
       },
+      { name: "startDate", label: "From (owner since / agreement start)", type: "date" },
+      { name: "endDate", label: "To (tenant agreement end)", type: "date" },
       { name: "relation", label: "Relation", type: "text" },
       {
         name: "primaryFirstName",
@@ -174,6 +184,14 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
     path: "/portal/family-member",
     description: "Manage family members linked to owner/tenant memberships.",
     apiRoute: "/v1/family-member",
+    columns: [
+      { name: "name", label: "Name", value: (r) => [r.firstName, r.middleName, r.lastName].filter(Boolean).join(" ") },
+      { name: "relation", label: "Relation" },
+      { name: "unitMembershipId", label: "Household" },
+      { name: "phone", label: "Mobile" },
+      { name: "age", label: "Age" },
+      { name: "isActive", label: "Active" },
+    ],
     fields: [
       { name: "societyId", label: "Society", type: "number", required: true },
       {
@@ -248,7 +266,6 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
         type: "date",
         required: true,
       },
-      { name: "createdBy", label: "Created By", type: "number" },
     ],
   },
   {
@@ -260,12 +277,6 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
     fields: [
       { name: "societyId", label: "Society", type: "number", required: true },
       { name: "unitId", label: "Unit", type: "number", required: true },
-      {
-        name: "raisedByUserId",
-        label: "Raised By",
-        type: "number",
-        required: true,
-      },
       { name: "category", label: "Category", type: "text", required: true },
       {
         name: "description",
@@ -295,22 +306,9 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
     apiRoute: "/v1/user",
     fields: [
       { name: "societyId", label: "Society", type: "number", required: true },
-      { name: "firstName", label: "First Name", type: "text", required: true },
-      { name: "middleName", label: "Middle Name", type: "text" },
-      { name: "lastName", label: "Last Name", type: "text", required: true },
-      { name: "familyName", label: "Family Name", type: "text" },
-      { name: "age", label: "Age", type: "number" },
-      {
-        name: "gender",
-        label: "Gender",
-        type: "select",
-        options: [
-          { label: "MALE", value: "MALE" },
-          { label: "FEMALE", value: "FEMALE" },
-          { label: "OTHER", value: "OTHER" },
-        ],
-      },
-      { name: "phone", label: "Phone", type: "text" },
+      { name: "name", label: "Full Name", type: "text", required: true },
+      // The person logs in with this phone (OTP) or email; one of them is required.
+      { name: "phone", label: "Mobile", type: "text" },
       { name: "email", label: "Email", type: "text" },
       {
         name: "role",

@@ -1,45 +1,29 @@
 import { useState } from "react";
 import ImportModal from "./importmodel";
 
+export type ImportKind = "unit" | "unit-membership";
+
 type Props = {
-  onImport: (file: File) => Promise<void>;
-  onExport?: () => Promise<void>;
-  templateDownload?: () => Promise<void>;
+  kind: ImportKind;
+  societyId: number;
 };
 
-export default function ImportExportActions({
-  onExport,
-  onImport,
-  templateDownload,
-}: Props) {
+export default function ImportExportActions({ kind, societyId }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <div className="flex gap-2">
-        <button
-          onClick={() => setOpen(true)}
-          className="px-3 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-400 transition"
-        >
-          Import
-        </button>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="btn-primary"
+      >
+        Import Excel
+      </button>
 
-        {onExport && (
-          <button
-            onClick={onExport}
-            className="px-3 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition"
-          >
-            Export
-          </button>
-        )}
-      </div>
-
-      <ImportModal
-        open={open}
-        onClose={() => setOpen(false)}
-        onImport={onImport}
-        templateDownload={templateDownload}
-      />
+      {open ? (
+        <ImportModal kind={kind} societyId={societyId} onClose={() => setOpen(false)} />
+      ) : null}
     </>
   );
 }

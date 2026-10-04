@@ -1,25 +1,65 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { baseQuery } from "@/lib/api";
 import { RESOURCE_CONFIG_MAP } from "./resourceConfig";
-
-type ListResponse<T> = {
-  success?: boolean;
-  data?: T[];
-  message?: string;
-};
 
 export type ResourceRecord = Record<string, unknown> & { id?: number | string };
 
-export type DashboardStats = {
-  societies: number;
+/** GET /v1/society/:id/onboarding-status */
+export type OnboardingStatus = {
+  society: { id: number; name: string; wingsCount: number };
+  wings: number;
   units: number;
-  complaints: number;
-  subscriptions: number;
+  occupiedUnits: number;
+  vacantUnits: number;
+  users: number;
+  activatedUsers: number;
+  familyMembers: number;
+  familyMembersWithLogin: number;
+  steps: {
+    structureImported: boolean;
+    residentsImported: boolean;
+    loginsActivated: boolean;
+  };
+  nextStep: string | null;
+};
+
+/** Response of POST /v1/unit/import and /v1/unit-membership/import. */
+export type ImportResult = {
+  dryRun: boolean;
+  skipped: { rowNumber: number; reason: string }[];
+  // unit import
+  insertedCount?: number;
+  wingsCreated?: string[];
+  // resident import
+  membershipsCreated?: number;
+  usersCreated?: number;
+  familyMembersCreated?: number;
+};
+
+export type ImportArg = {
+  path: "/v1/unit/import" | "/v1/unit-membership/import";
+  societyId: number;
+  file: File;
+  dryRun: boolean;
+};
+
+export type SetupSocietyPayload = {
+  subscriptionId: number;
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  wingsCount?: number;
+  admin: { name: string; phone?: string; email?: string };
 };
 
 export type ResourceMutationArg = {
   resource: string;
   id?: number | string;
   payload?: Record<string, unknown>;
+  // Needed by SUPER_ADMIN on update/delete: the backend can't tell which society the id belongs to.
+  societyId?: number;
 };
 export type CreateUnitMembershipArg = {
   societyId: number;
@@ -57,6 +97,8 @@ export type UnitMembershipHistoryArg = {
 export type UnitMembershipHistoryResponse = {
   unit?: ResourceRecord;
   currentOccupancy?: string;
+  currentResidentType?: "OWNER" | "TENANT" | null;
+  currentResidentMembershipId?: number | null;
   currentOwner?: ResourceRecord | null;
   currentTenant?: ResourceRecord | null;
   currentFamilyMembers?: ResourceRecord[];
@@ -68,7 +110,6 @@ export type UnitMembershipHistoryResponse = {
 };
 
 export type PurchasePayload = {
-  societyId: number;
   planName: string;
   price: number;
   startDate: string;
@@ -76,11 +117,8 @@ export type PurchasePayload = {
   status?: "ACTIVE" | "EXPIRED";
 };
 
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
-
 type ApiState = {
   auth: {
-    token: string | null;
     user?: {
       role?: string | null;
       societyId?: number | null;
@@ -111,8 +149,11 @@ const buildListUrl = (
   wingId?: number,
 ) => {
   const base = resolveResourceRoute(resource);
-  if (resource === "unit" && wingId) {
-    return `${base}/${wingId}`;
+  // Units are listed per society (GET /unit) or per wing (GET /unit/:wingId); the society always
+  // goes in the query because the path segment is the wing.
+  if (resource === "unit") {
+    const query = societyId ? `?societyId=${societyId}` : "";
+    return wingId ? `${base}/${wingId}${query}` : `${base}${query}`;
   }
   if (needsSocietyInPath(resource) && societyId) {
     return `${base}/${societyId}`;
@@ -120,108 +161,40 @@ const buildListUrl = (
   return base;
 };
 
+// Anything that changes who lives in a unit refreshes these lists.
+const HOUSEHOLD_TAGS = [
+  { type: "ResourceList" as const, id: "unit-membership" },
+  { type: "ResourceList" as const, id: "unit-membership-history" },
+  { type: "ResourceList" as const, id: "user" },
+  { type: "ResourceList" as const, id: "family-member" },
+  "Dashboard" as const,
+];
+
 export const portalApi = createApi({
   reducerPath: "portalApi",
   tagTypes: ["Dashboard", "ResourceList"],
-  baseQuery: fetchBaseQuery({
-    baseUrl,
-    prepareHeaders: (headers, { getState }) => {
-      const token = (getState() as ApiState).auth.token;
-      if (token) {
-        headers.set("authorization", `Bearer ${token}`);
-      }
-      // headers.set("content-type", "application/json");
-      return headers;
-    },
-  }),
+  baseQuery,
   endpoints: (builder) => ({
-    getDashboardStats: builder.query<DashboardStats, void>({
-      async queryFn(_arg, api, _extraOptions, baseQuery) {
-        const state = api.getState() as ApiState;
-        const userRole = String(state.auth.user?.role ?? "").toUpperCase();
-        const userSocietyId = Number(state.auth.user?.societyId);
-
-        const societyRes = await baseQuery({
-          url: "/v1/society",
-          method: "GET",
-        });
-        if (societyRes.error) {
-          return { error: societyRes.error };
-        }
-
-        const societies = ((societyRes.data as ListResponse<ResourceRecord>)
-          ?.data ?? []) as ResourceRecord[];
-        const allSocietyIds = societies
-          .map((item) => Number(item.id))
-          .filter((id) => Number.isFinite(id));
-        const scopedSocietyIds =
-          userRole === "SUPER_ADMIN"
-            ? allSocietyIds
-            : Number.isFinite(userSocietyId)
-              ? [userSocietyId]
-              : [];
-
-        if (scopedSocietyIds.length === 0) {
-          return {
-            data: {
-              societies: societies.length,
-              units: 0,
-              complaints: 0,
-              subscriptions: 0,
-            },
-          };
-        }
-
-        const requests = scopedSocietyIds.map((id) =>
-          Promise.all([
-            baseQuery({ url: buildListUrl("unit", id), method: "GET" }),
-            baseQuery({ url: buildListUrl("complaint", id), method: "GET" }),
-            baseQuery({ url: buildListUrl("subscription", id), method: "GET" }),
-          ]),
-        );
-        const results = await Promise.all(requests);
-
-        let units = 0;
-        let complaints = 0;
-        let subscriptions = 0;
-
-        for (const [unitRes, complaintRes, subscriptionRes] of results) {
-          if (unitRes.error) {
-            return { error: unitRes.error };
-          }
-          if (complaintRes.error) {
-            return { error: complaintRes.error };
-          }
-          if (subscriptionRes.error) {
-            return { error: subscriptionRes.error };
-          }
-          units += ((unitRes.data as ListResponse<unknown>)?.data ?? []).length;
-          complaints += (
-            (complaintRes.data as ListResponse<unknown>)?.data ?? []
-          ).length;
-          subscriptions += (
-            (subscriptionRes.data as ListResponse<unknown>)?.data ?? []
-          ).length;
-        }
-
-        return {
-          data: {
-            societies: societies.length,
-            units,
-            complaints,
-            subscriptions,
-          },
-        };
-      },
+    getOnboardingStatus: builder.query<OnboardingStatus, number>({
+      query: (societyId) => `/v1/society/${societyId}/onboarding-status`,
+      transformResponse: (response: { data: OnboardingStatus }) => response.data,
       providesTags: ["Dashboard"],
     }),
     getResourceList: builder.query<ResourceRecord[], ResourceListArg>({
-      query: ({ resource, societyId, wingId }) => ({
-        url: buildListUrl(resource, societyId, wingId),
-        method: "GET",
-      }),
-      transformResponse: (response: ListResponse<ResourceRecord>) =>
-        response.data ?? [],
+      async queryFn({ resource, societyId, wingId }, api, _extraOptions, baseQuery) {
+        const user = (api.getState() as ApiState).auth.user;
+        // GET /v1/society lists every society and is super-admin only; others read their own.
+        const url =
+          resource === "society" && user?.role !== "SUPER_ADMIN"
+            ? `/v1/society/${user?.societyId}`
+            : buildListUrl(resource, societyId, wingId);
+        const result = await baseQuery(url);
+        if (result.error) {
+          return { error: result.error };
+        }
+        const data = (result.data as { data?: ResourceRecord | ResourceRecord[] }).data;
+        return { data: Array.isArray(data) ? data : data ? [data] : [] };
+      },
       providesTags: (_result, _error, arg) => [
         { type: "ResourceList", id: arg.resource },
       ],
@@ -255,6 +228,8 @@ export const portalApi = createApi({
         return {
           unit: res.unit ?? {},
           currentOccupancy: res.currentOccupancy,
+          currentResidentType: res.currentResidentType ?? null,
+          currentResidentMembershipId: res.currentResidentMembershipId ?? null,
           currentOwner: res.currentOwner ?? null,
           currentTenant: res.currentTenant ?? null,
           currentFamilyMembers: res.currentFamilyMembers ?? [],
@@ -309,14 +284,11 @@ export const portalApi = createApi({
       }),
       transformResponse: (response: { data?: ResourceRecord }) =>
         response.data ?? {},
-      invalidatesTags: [
-        { type: "ResourceList", id: "unit-membership" },
-        "Dashboard",
-      ],
+      invalidatesTags: HOUSEHOLD_TAGS,
     }),
     updateResource: builder.mutation<ResourceRecord, ResourceMutationArg>({
-      query: ({ resource, id, payload }) => ({
-        url: `${resolveResourceRoute(resource)}/${id}`,
+      query: ({ resource, id, payload, societyId }) => ({
+        url: `${resolveResourceRoute(resource)}/${id}${societyId ? `?societyId=${societyId}` : ""}`,
         method: "PUT",
         body: payload,
       }),
@@ -334,8 +306,8 @@ export const portalApi = createApi({
     }),
     deleteResource: builder.mutation<{ success: boolean }, ResourceMutationArg>(
       {
-        query: ({ resource, id }) => ({
-          url: `${resolveResourceRoute(resource)}/${id}`,
+        query: ({ resource, id, societyId }) => ({
+          url: `${resolveResourceRoute(resource)}/${id}${societyId ? `?societyId=${societyId}` : ""}`,
           method: "DELETE",
         }),
         transformResponse: () => ({ success: true }),
@@ -363,18 +335,57 @@ export const portalApi = createApi({
         "Dashboard",
       ],
     }),
-    importFile: builder.mutation<
-      ResourceRecord,
-      { url: string; data: FormData }
-    >({
-      query: ({ url, data }) => ({
-        url,
+    /** Tenant moves out / owner leaves (kept in history). */
+    endMembership: builder.mutation<ResourceRecord, { id: number; societyId: number; endDate: string }>({
+      query: ({ id, societyId, endDate }) => ({
+        url: `/v1/unit-membership/${id}/end?societyId=${societyId}`,
         method: "POST",
-        body: data,
+        body: { endDate },
       }),
-      invalidatesTags: (_result, _error, arg) => [
-        { type: "ResourceList", id: "unit" },
-      ],
+      invalidatesTags: HOUSEHOLD_TAGS,
+    }),
+    /** Extend a tenancy agreement to a new end date. */
+    renewTenancy: builder.mutation<ResourceRecord, { id: number; societyId: number; endDate: string }>({
+      query: ({ id, societyId, endDate }) => ({
+        url: `/v1/unit-membership/${id}/renew?societyId=${societyId}`,
+        method: "POST",
+        body: { endDate },
+      }),
+      invalidatesTags: HOUSEHOLD_TAGS,
+    }),
+    /** Ownership transfer / new tenant: ends the current one on effectiveDate, starts the new one. */
+    replaceHousehold: builder.mutation<ResourceRecord, CreateUnitMembershipArg & { effectiveDate: string }>({
+      query: (body) => ({
+        url: `/v1/unit-membership/replace?societyId=${body.societyId}`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: HOUSEHOLD_TAGS,
+    }),
+    setupSociety: builder.mutation<ResourceRecord, SetupSocietyPayload>({
+      query: (payload) => ({
+        url: "/v1/society/setup",
+        method: "POST",
+        body: payload,
+      }),
+      transformResponse: (response: { data?: ResourceRecord }) =>
+        response.data ?? {},
+      invalidatesTags: ["ResourceList", "Dashboard"],
+    }),
+    importFile: builder.mutation<ImportResult, ImportArg>({
+      query: ({ path, societyId, file, dryRun }) => {
+        const body = new FormData();
+        body.append("file", file);
+        return {
+          url: `${path}?societyId=${societyId}&dryRun=${dryRun}`,
+          method: "POST",
+          body,
+        };
+      },
+      transformResponse: (response: { data: ImportResult }) => response.data,
+      // An import touches wings, units, users and memberships: refresh every list.
+      invalidatesTags: (_result, _error, arg) =>
+        arg.dryRun ? [] : ["ResourceList", "Dashboard"],
     }),
     exportFile: builder.mutation<Blob, string>({
       query: (url) => ({
@@ -387,7 +398,7 @@ export const portalApi = createApi({
 });
 
 export const {
-  useGetDashboardStatsQuery,
+  useGetOnboardingStatusQuery,
   useGetResourceListQuery,
   useGetUnitMembershipHistoryQuery,
   useCreateResourceMutation,
@@ -395,6 +406,10 @@ export const {
   useUpdateResourceMutation,
   useDeleteResourceMutation,
   usePurchaseSubscriptionMutation,
+  useSetupSocietyMutation,
+  useEndMembershipMutation,
+  useRenewTenancyMutation,
+  useReplaceHouseholdMutation,
   useImportFileMutation,
   useExportFileMutation,
 } = portalApi;

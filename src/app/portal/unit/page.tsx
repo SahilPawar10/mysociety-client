@@ -3,18 +3,14 @@
 import { useMemo, useState } from "react";
 import {
   useCreateResourceMutation,
-  useCreateUnitMembershipMutation,
-  useExportFileMutation,
   useGetResourceListQuery,
-  useGetUnitMembershipHistoryQuery,
-  useImportFileMutation,
   useUpdateResourceMutation,
   type ResourceRecord,
 } from "@/lib/features/portal/portalApi";
 import { useAppSelector } from "@/lib/hooks";
-import { useDispatch } from "react-redux";
-import { portalApi } from "@/lib/features/portal/portalApi";
 import ImportExportActions from "@/components/importexport/page";
+import UnitHouseholdPanel from "@/components/unit/UnitHouseholdPanel";
+import { errorMessage } from "@/lib/api";
 
 const toNumber = (value: unknown) => {
   const n = Number(value);
@@ -65,7 +61,6 @@ const isActiveMembership = (membership: ResourceRecord) => {
 
 export default function UnitHomesPage() {
   const user = useAppSelector((state) => state.auth.user);
-  const dispatch = useDispatch();
   const role = String(user?.role ?? "").toUpperCase();
   const isSuperAdmin = role === "SUPER_ADMIN";
   const isSocietyAdmin = role === "SOCIETY_ADMIN";
@@ -75,32 +70,8 @@ export default function UnitHomesPage() {
 
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [unitModalView, setUnitModalView] = useState<
-    "list" | "form" | "family-form" | "create-unit" | "edit-unit" | "history"
+    "list" | "create-unit" | "edit-unit"
   >("list");
-  const [memberName, setMemberName] = useState("");
-  const [memberPhone, setMemberPhone] = useState("");
-  const [memberEmail, setMemberEmail] = useState("");
-  const [memberType, setMemberType] = useState("OWNER");
-  const [memberRelation, setMemberRelation] = useState("");
-  const [memberPrimary, setMemberPrimary] = useState(false);
-  const [memberActive, setMemberActive] = useState(true);
-  const [memberStartDate, setMemberStartDate] = useState("");
-  const [memberEndDate, setMemberEndDate] = useState("");
-  const [familyMembershipId, setFamilyMembershipId] = useState("");
-  const [familyMemberFirstName, setFamilyMemberFirstName] = useState("");
-  const [familyMemberMiddleName, setFamilyMemberMiddleName] = useState("");
-  const [familyMemberLastName, setFamilyMemberLastName] = useState("");
-  const [familyMemberFamilyName, setFamilyMemberFamilyName] = useState("");
-  const [familyMemberRelation, setFamilyMemberRelation] = useState("");
-  const [familyMemberAge, setFamilyMemberAge] = useState("");
-  const [familyMemberGender, setFamilyMemberGender] = useState("");
-  const [familyMemberPhone, setFamilyMemberPhone] = useState("");
-  const [familyMemberEmail, setFamilyMemberEmail] = useState("");
-  const [familyMemberActive, setFamilyMemberActive] = useState(true);
-  const [familyFirstName, setFamilyFirstName] = useState("");
-  const [familyMiddleName, setFamilyMiddleName] = useState("");
-  const [familyLastName, setFamilyLastName] = useState("");
-  const [familyName, setFamilyName] = useState("");
   const [newUnitWingId, setNewUnitWingId] = useState("");
   const [newUnitFloorNumber, setNewUnitFloorNumber] = useState("");
   const [newUnitNumber, setNewUnitNumber] = useState("");
@@ -130,13 +101,16 @@ export default function UnitHomesPage() {
     { skip: !effectiveSocietyId },
   );
 
-  const { data: units = [], isLoading } = useGetResourceListQuery(
+  const {
+    data: units = [],
+    refetch: refetchUnits,
+  } = useGetResourceListQuery(
     {
       resource: "unit",
-      // societyId: effectiveSocietyId || undefined,
-      wingId: Number(selectedWingId) || undefined, // 👈 add this
+      societyId: effectiveSocietyId || undefined,
+      wingId: Number(selectedWingId) || undefined,
     },
-    { skip: !selectedWingId },
+    { skip: !selectedWingId || !effectiveSocietyId },
   );
 
   // const { data: membershipsScoped = [] } = useGetResourceListQuery(
@@ -166,49 +140,6 @@ export default function UnitHomesPage() {
     { skip: !effectiveSocietyId },
   );
 
-  const [importFile] = useImportFileMutation();
-  const [exportFile] = useExportFileMutation();
-
-  const handleImport = async (file: File) => {
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      await importFile({
-        url: `/v1/unit/import?societyId=${effectiveSocietyId}`,
-        data: formData,
-      }).unwrap();
-    } catch (error) {
-      console.log(error, "error while importing");
-    }
-  };
-
-  const handleExport = async () => {
-    const blob = await exportFile("/units/export").unwrap();
-
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "units.xlsx";
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  const handleTemplateDownload = async () => {
-    const blob = await exportFile(
-      `/v1/unit/import/template?societyId=${effectiveSocietyId}`,
-    ).unwrap();
-
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "units-template.xlsx";
-    a.click();
-
-    window.URL.revokeObjectURL(url);
-  };
-
   const users = useMemo(() => {
     if (!effectiveSocietyId) {
       return [];
@@ -222,19 +153,10 @@ export default function UnitHomesPage() {
     });
   }, [effectiveSocietyId, usersAll]);
 
-  const [createResource, { isLoading: isAddingMember }] =
-    useCreateUnitMembershipMutation();
   const [createUnitResource, { isLoading: isCreatingUnit }] =
-    useCreateResourceMutation();
-  const [createFamilyMemberResource, { isLoading: isAddingFamilyMember }] =
     useCreateResourceMutation();
   const [updateResource, { isLoading: isUpdatingUnit }] =
     useUpdateResourceMutation();
-
-  const selectedSociety = useMemo(
-    () => societies.find((s) => toNumber(s.id) === effectiveSocietyId),
-    [societies, effectiveSocietyId],
-  );
 
   const selectedWing = useMemo(() => {
     return wings.find((w) => Number(w.id) === Number(selectedWingId));
@@ -304,133 +226,17 @@ export default function UnitHomesPage() {
     return Number.isFinite(slot) ? slot : null;
   }, [selectedUnitId]);
 
-  const selectedMembers = useMemo(() => {
-    if (!selectedUnitId) {
-      return [];
-    }
-    return selectedUnitId ? (membersByUnitId.get(selectedUnitId) ?? []) : [];
-  }, [membersByUnitId, selectedUnitId]);
-
-  const selectedUnitIdNumber = toNumber(selectedUnit?.id);
-  const { data: residentHistoryData, isLoading: isHistoryLoading } =
-    useGetUnitMembershipHistoryQuery(
-      {
-        societyId: effectiveSocietyId,
-        unitId: selectedUnitIdNumber,
-      },
-      {
-        skip: !effectiveSocietyId || !selectedUnit || !selectedUnitIdNumber,
-      },
-    );
-
-  const residentHistory = residentHistoryData?.allMemberships ?? [];
-  const currentFamilyMembers = residentHistoryData?.currentFamilyMembers ?? [];
-  const previousFamilyMembers =
-    residentHistoryData?.previousFamilyMembers ?? [];
-  const currentOccupancy = String(residentHistoryData?.currentOccupancy ?? "-");
-  const currentOwnerName = String(
-    residentHistoryData?.currentOwner?.userName ??
-      residentHistoryData?.currentOwner?.name ??
-      "-",
-  );
-  const currentTenantName = String(
-    residentHistoryData?.currentTenant?.userName ??
-      residentHistoryData?.currentTenant?.name ??
-      "-",
-  );
   const canEditUnit = isSuperAdmin || isSocietyAdmin;
-  const hasActiveMembership = selectedMembers.length > 0;
-  const canAddUnitMember = !hasActiveMembership;
-  const activeMembershipForFamily = useMemo(() => {
-    if (selectedMembers.length === 0) {
-      return undefined;
-    }
-    return (
-      selectedMembers.find((item) => Boolean(item.membership.isPrimary)) ??
-      selectedMembers.find(
-        (item) => String(item.membership.type) === "OWNER",
-      ) ??
-      selectedMembers.find(
-        (item) => String(item.membership.type) === "TENANT",
-      ) ??
-      selectedMembers[0]
-    );
-  }, [selectedMembers]);
 
-  const onAddMember = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  // An empty planned slot opens the unit details form directly; saving creates the unit.
+  const openUnitDetailsForm = () => {
+    setNewUnitWingId(selectedWingId);
+    setNewUnitFloorNumber("");
+    setNewUnitNumber("");
+    setNewUnitParkingSlots("");
+    setNewUnitAreaSqft("");
+    setUnitModalView("create-unit");
     setMessage("");
-
-    const selectedUnitIdNumber = Number(selectedUnitId);
-
-    if (
-      !selectedUnitId ||
-      !Number.isFinite(selectedUnitIdNumber) ||
-      !effectiveSocietyId
-    ) {
-      setMessage("Select a valid unit and member.");
-      return;
-    }
-    if (!memberName.trim()) {
-      setMessage("Member name is required.");
-      return;
-    }
-    if (!familyFirstName.trim() || !familyLastName.trim()) {
-      setMessage("Primary family first name and last name are required.");
-      return;
-    }
-
-    try {
-      await createResource({
-        societyId: effectiveSocietyId,
-        unitId: selectedUnitIdNumber,
-        type: memberType as "OWNER" | "TENANT",
-        relation: memberRelation || null,
-        isPrimary: memberPrimary,
-        isActive: memberActive,
-        startDate: memberStartDate || null,
-        endDate: memberEndDate || null,
-        user: {
-          name: memberName.trim(),
-          phone: memberPhone.trim() || undefined,
-          email: memberEmail.trim() || undefined,
-          role: "MEMBER",
-          isActive: memberActive,
-        },
-        primaryFamily: {
-          firstName: familyFirstName.trim(),
-          middleName: familyMiddleName.trim() || undefined,
-          lastName: familyLastName.trim(),
-          familyName: familyName.trim() || undefined,
-        },
-      }).unwrap();
-
-      setMessage("Member added successfully.");
-      setMemberName("");
-      setMemberPhone("");
-      setMemberEmail("");
-      setMemberType("OWNER");
-      setMemberRelation("");
-      setMemberPrimary(false);
-      setMemberActive(true);
-      setMemberStartDate("");
-      setMemberEndDate("");
-      setFamilyFirstName("");
-      setFamilyMiddleName("");
-      setFamilyLastName("");
-      setFamilyName("");
-      setUnitModalView("list");
-      // refetch the data again
-      dispatch(
-        portalApi.util.invalidateTags([
-          { type: "ResourceList", id: "user" },
-          { type: "ResourceList", id: "unit-membership" },
-          { type: "ResourceList", id: "unit-membership-history" },
-        ]),
-      );
-    } catch (error) {
-      setMessage(error as string);
-    }
   };
 
   const onCreateUnit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -457,13 +263,13 @@ export default function UnitHomesPage() {
           wingId: wingIdNumber,
           floorNumber,
           unitNumber: newUnitNumber.trim(),
-          parkingSlots: newUnitParkingSlots
-            ? Number(newUnitParkingSlots)
-            : null,
+          parkingSlots: newUnitParkingSlots.trim() || null,
           areaSqft: newUnitAreaSqft ? Number(newUnitAreaSqft) : null,
         },
       }).unwrap();
 
+      // Reload first so the saved unit (and its details) is in the list when the popup shows it.
+      await refetchUnits();
       const createdId = toId(created.id);
       if (createdId) {
         setSelectedUnitId(createdId);
@@ -474,70 +280,9 @@ export default function UnitHomesPage() {
       setNewUnitNumber("");
       setNewUnitParkingSlots("");
       setNewUnitAreaSqft("");
-      setMessage("Unit created successfully.");
-    } catch {
-      setMessage("Failed to create unit.");
-    }
-  };
-
-  const onAddFamilyMember = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setMessage("");
-
-    const selectedUnitMembershipId = Number(
-      familyMembershipId || toId(activeMembershipForFamily?.membership.id),
-    );
-    if (
-      !effectiveSocietyId ||
-      !Number.isFinite(selectedUnitMembershipId) ||
-      !familyMemberFirstName.trim() ||
-      !familyMemberLastName.trim()
-    ) {
-      setMessage(
-        "Select membership and provide family member first name and last name.",
-      );
-      return;
-    }
-
-    try {
-      await createFamilyMemberResource({
-        resource: "family-member",
-        payload: {
-          societyId: effectiveSocietyId,
-          unitMembershipId: selectedUnitMembershipId,
-          firstName: familyMemberFirstName.trim(),
-          middleName: familyMemberMiddleName.trim() || null,
-          lastName: familyMemberLastName.trim(),
-          familyName: familyMemberFamilyName.trim() || null,
-          relation: familyMemberRelation.trim() || null,
-          age: familyMemberAge ? Number(familyMemberAge) : null,
-          gender:
-            familyMemberGender === "MALE" ||
-            familyMemberGender === "FEMALE" ||
-            familyMemberGender === "OTHER"
-              ? familyMemberGender
-              : null,
-          phone: familyMemberPhone.trim() || null,
-          email: familyMemberEmail.trim() || null,
-          isActive: familyMemberActive,
-        },
-      }).unwrap();
-
-      setFamilyMembershipId(toId(activeMembershipForFamily?.membership.id));
-      setFamilyMemberFirstName("");
-      setFamilyMemberMiddleName("");
-      setFamilyMemberLastName("");
-      setFamilyMemberFamilyName("");
-      setFamilyMemberRelation("");
-      setFamilyMemberAge("");
-      setFamilyMemberGender("");
-      setFamilyMemberPhone("");
-      setFamilyMemberEmail("");
-      setFamilyMemberActive(true);
-      setUnitModalView("list");
-      setMessage("Family member added successfully.");
-    } catch {
-      setMessage("Failed to add family member.");
+      setMessage("Unit details saved successfully.");
+    } catch (error) {
+      setMessage(errorMessage(error, "Failed to create unit."));
     }
   };
 
@@ -579,40 +324,38 @@ export default function UnitHomesPage() {
       await updateResource({
         resource: "unit",
         id: selectedUnit.id,
+        societyId: effectiveSocietyId,
         payload: {
           societyId: effectiveSocietyId,
           wingId: wingIdNumber,
           floorNumber,
           unitNumber: editUnitNumber.trim(),
-          parkingSlots: editUnitParkingSlots
-            ? Number(editUnitParkingSlots)
-            : null,
+          parkingSlots: editUnitParkingSlots.trim() || null,
           areaSqft: editUnitAreaSqft ? Number(editUnitAreaSqft) : null,
         },
       }).unwrap();
+      await refetchUnits();
       setUnitModalView("list");
-      setMessage("Unit updated successfully.");
-    } catch {
-      setMessage("Failed to update unit.");
+      setMessage("Unit details updated successfully.");
+    } catch (error) {
+      setMessage(errorMessage(error, "Failed to update unit."));
     }
   };
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-rose-600">Units</h2>
-          <p className="text-sm text-slate-500">
-            Home-style view based on society unit count.
-          </p>
+          <h2 className="page-title">Units</h2>
+          <p className="page-subtitle">Pick a wing to see its flats. Click a flat to manage owners, tenants and family.</p>
         </div>
       </div>
 
       <div className="flex gap-4 flex-wrap">
         {/* Society Dropdown */}
         {isSuperAdmin && (
-          <div className="bg-white rounded-xl shadow-sm p-4 flex-1 min-w-[250px]">
-            <label className="block text-sm font-medium mb-1">
+          <div className="card p-4 flex-1 min-w-[250px]">
+            <label className="label">
               Select Society
             </label>
             <select
@@ -621,7 +364,7 @@ export default function UnitHomesPage() {
                 setSelectedSocietyId(e.target.value);
                 setUnitModalView("list");
               }}
-              className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+              className="input"
             >
               <option value="">Select society</option>
               {societies.map((s) => (
@@ -636,8 +379,8 @@ export default function UnitHomesPage() {
         {/* Wing Dropdown */}
         {effectiveSocietyId ? (
           <>
-            <div className="bg-white rounded-xl shadow-sm p-4 flex-1 min-w-[250px]">
-              <label className="block text-sm font-medium mb-1">
+            <div className="card p-4 flex-1 min-w-[250px]">
+              <label className="label">
                 Select Wing
               </label>
               <select
@@ -647,7 +390,7 @@ export default function UnitHomesPage() {
                   setSelectedUnitId(null);
                   setUnitModalView("list");
                 }}
-                className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+                className="input"
               >
                 <option value="">Select Wing</option>
                 {wings.map((w) => (
@@ -657,31 +400,32 @@ export default function UnitHomesPage() {
                 ))}
               </select>
             </div>
+
+            {/* Import creates the wings too, so it must not wait for a wing to be selected. */}
+            <div className="card p-4 flex items-end">
+              <ImportExportActions kind="unit" societyId={effectiveSocietyId} />
+            </div>
           </>
         ) : null}
       </div>
+      {effectiveSocietyId && wings.length === 0 ? (
+        <p className="alert-warn">
+          No wings yet. Use Import Excel to add all units at once (wings are created automatically).
+        </p>
+      ) : null}
       {selectedWingId ? (
         <>
           {" "}
           <div className="flex items-center justify-between gap-4 mb-4">
             {/* Stats Card */}
-            <div className="bg-white rounded-xl shadow-sm px-4 py-3 text-sm text-slate-600">
+            <div className="card px-4 py-3 text-sm text-slate-600">
               Planned units: <span className="font-semibold">{unitsCount}</span>
               <span className="mx-2 text-slate-400">|</span>
               Created units:{" "}
               <span className="font-semibold">{sortedUnits.length}</span>
             </div>
-
-            {/* Import Export Buttons */}
-            <div className="flex items-center gap-2">
-              <ImportExportActions
-                onImport={handleImport}
-                onExport={handleExport}
-                templateDownload={handleTemplateDownload}
-              />
-            </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
             {homeSlots.map(({ slot, unit }) => {
               const unitId = toId(unit?.id);
               const membershipList = unitId
@@ -697,17 +441,35 @@ export default function UnitHomesPage() {
                   type="button"
                   onClick={() => {
                     setSelectedUnitId(unitId || `slot-${slot}`);
-                    setUnitModalView("list");
-                    setMessage("");
-                  }}
-                  className={`text-left bg-white rounded-xl shadow-sm p-3 border-2 transition ${
+                    if (unit) {
+                      setUnitModalView("list");
+                      setMessage("");
+                    } else {
+                      openUnitDetailsForm();
+                    }
+                    }}
+                  className={`group text-left card p-4 transition hover:-translate-y-0.5 hover:shadow-md ${
                     selectedUnitId === unitId && unitId
-                      ? "border-rose-500"
-                      : "border-transparent hover:border-rose-200"
+                      ? "ring-2 ring-brand-500"
+                      : unit
+                        ? "hover:border-brand-300"
+                        : "border-dashed bg-slate-50/60"
                   }`}
                 >
-                  <div className="text-2xl">🏠</div>
-                  <p className="font-semibold text-slate-800 mt-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <span
+                      className={`badge ${
+                        !unit
+                          ? ""
+                          : primaryMembership
+                            ? "bg-brand-50 text-brand-700"
+                            : "bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      {!unit ? "Empty slot" : primaryMembership ? "Occupied" : "Vacant"}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-lg font-semibold tracking-tight text-slate-900">
                     {unit
                       ? String(unit.unitNumber ?? `Unit ${unit.id}`)
                       : `Home ${slot}`}
@@ -717,18 +479,18 @@ export default function UnitHomesPage() {
                       ? (wingNameById.get(toNumber(unit.wingId)) ?? "No wing")
                       : "Blank slot"}
                   </p>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Floor: {unit ? String(unit.floorNumber ?? "-") : "-"} |
-                    Parking: {unit ? String(unit.parkingSlots ?? "-") : "-"}
+                  <p className="text-xs text-slate-500 mt-1">
+                    Floor {unit ? String(unit.floorNumber ?? "-") : "-"} · Parking{" "}
+                    {unit ? String(unit.parkingSlots ?? "-") : "-"}
                   </p>
-                  <p className="text-xs text-rose-600 mt-1">
+                  <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-400">
                     {unit
                       ? String(
                           primaryMembership?.membership.type ?? "No membership",
                         )
                       : "Available"}
                   </p>
-                  <p className="text-xs text-slate-600 mt-1">
+                  <p className="text-sm text-slate-700 truncate">
                     {unit
                       ? `Owner: ${
                           membershipList.find(
@@ -745,19 +507,21 @@ export default function UnitHomesPage() {
           </div>
           {selectedUnitId ? (
             <div
-              className="fixed inset-0 z-50 bg-black/40 p-4 flex items-center justify-center"
+              className="modal-backdrop"
               onClick={() => {
                 setSelectedUnitId(null);
                 setUnitModalView("list");
               }}
             >
               <div
-                className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-5 space-y-4"
+                className="modal max-w-3xl space-y-5"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-slate-700">
-                    Unit Members
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    {selectedUnit
+                      ? `Flat ${String(selectedUnit.unitNumber ?? "")}`
+                      : `Planned unit ${selectedSlotNumber ?? ""}`}
                   </h3>
                   <button
                     type="button"
@@ -765,492 +529,59 @@ export default function UnitHomesPage() {
                       setSelectedUnitId(null);
                       setUnitModalView("list");
                     }}
-                    className="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100"
+                    className="btn-secondary btn-sm"
                   >
                     Close
                   </button>
                 </div>
 
-                <div className="text-sm text-slate-600">
-                  Unit:{" "}
-                  <span className="font-semibold">
-                    {selectedUnit
-                      ? String(selectedUnit.unitNumber ?? selectedUnit.id)
-                      : selectedSlotNumber
-                        ? `Home ${selectedSlotNumber}`
-                        : "-"}
-                  </span>{" "}
-                  | Wing:{" "}
-                  <span className="font-semibold">
-                    {selectedUnit
-                      ? (wingNameById.get(toNumber(selectedUnit.wingId)) ?? "-")
-                      : "-"}
-                  </span>
-                  {" | "}Floor:{" "}
-                  <span className="font-semibold">
-                    {selectedUnit
-                      ? String(selectedUnit.floorNumber ?? "-")
-                      : "-"}
-                  </span>
-                  {" | "}Parking:{" "}
-                  <span className="font-semibold">
-                    {selectedUnit
-                      ? String(selectedUnit.parkingSlots ?? "-")
-                      : "-"}
-                  </span>
-                </div>
+                {selectedUnit ? (
+                  <dl className="grid grid-cols-2 sm:grid-cols-5 gap-3 rounded-xl bg-slate-50 p-4 text-sm">
+                    {[
+                      ["Unit", String(selectedUnit.unitNumber ?? "—")],
+                      ["Wing", wingNameById.get(toNumber(selectedUnit.wingId)) ?? "—"],
+                      ["Floor", String(selectedUnit.floorNumber ?? "—")],
+                      ["Parking", String(selectedUnit.parkingSlots || "—")],
+                      ["Area", selectedUnit.areaSqft ? `${String(selectedUnit.areaSqft)} sq ft` : "—"],
+                    ].map(([label, value]) => (
+                      <div key={label}>
+                        <dt className="text-xs text-slate-500">{label}</dt>
+                        <dd className="font-medium text-slate-800">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    This planned unit has no details yet. Fill them in to create it.
+                  </p>
+                )}
 
-                {unitModalView === "list" ? (
-                  <>
-                    {selectedMembers.length === 0 ? (
-                      <p className="text-slate-500">
-                        No active members assigned.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedMembers.map((item, idx) => (
-                          <div
-                            key={`${toNumber(item.membership.id)}-${idx}`}
-                            className="border border-slate-200 rounded-lg p-3"
-                          >
-                            <p className="font-medium text-slate-700">
-                              {String(item.user?.name ?? "Unknown Member")}
-                            </p>
-                            <p className="text-sm text-slate-500">
-                              Type: {String(item.membership.type ?? "-")} |
-                              Relation:{" "}
-                              {String(item.membership.relation ?? "-")}
-                            </p>
-                            <p className="text-sm text-slate-500">
-                              Phone: {String(item.user?.phone ?? "-")} | Email:{" "}
-                              {String(item.user?.email ?? "-")}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="pt-2">
-                      {selectedUnit ? (
-                        <div className="flex gap-2">
-                          {canAddUnitMember ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setUnitModalView("form");
-                                setMessage("");
-                              }}
-                              className="px-4 py-2 rounded-lg text-white bg-rose-500 hover:bg-rose-600"
-                            >
-                              Add Member
-                            </button>
-                          ) : null}
-                          {hasActiveMembership ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const activeMembershipId = toId(
-                                  activeMembershipForFamily?.membership.id,
-                                );
-                                setFamilyMembershipId(activeMembershipId);
-                                setUnitModalView("family-form");
-                                setMessage("");
-                              }}
-                              className="px-4 py-2 rounded-lg text-white bg-rose-500 hover:bg-rose-600"
-                            >
-                              Add Family Member
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setUnitModalView("history");
-                              setMessage("");
-                            }}
-                            className="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-100"
-                          >
-                            View History
-                          </button>
-                          {canEditUnit ? (
-                            <button
-                              type="button"
-                              onClick={openEditUnitForm}
-                              className="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-100"
-                            >
-                              Edit Unit
-                            </button>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUnitModalView("create-unit");
-                            setMessage("");
-                            setNewUnitNumber(
-                              selectedSlotNumber
-                                ? `Home ${selectedSlotNumber}`
-                                : "",
-                            );
-                          }}
-                          className="px-4 py-2 rounded-lg text-white bg-rose-500 hover:bg-rose-600"
-                        >
-                          Add New Unit
-                        </button>
-                      )}
-                    </div>
-                    {message ? (
-                      <p className="text-sm text-slate-600">{message}</p>
-                    ) : null}
-                  </>
-                ) : unitModalView === "family-form" ? (
-                  <form
-                    onSubmit={onAddFamilyMember}
-                    className="border-t pt-4 space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-slate-700">
-                        Add Family Member
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUnitModalView("list");
-                          setMessage("");
-                        }}
-                        className="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100"
-                      >
-                        Back to list
-                      </button>
-                    </div>
-                    <div className="grid md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm mb-1">
-                          Active Membership ID
-                        </label>
-                        <input
-                          type="text"
-                          value={String(
-                            familyMembershipId ||
-                              toId(activeMembershipForFamily?.membership.id),
-                          )}
-                          readOnly
-                          className="w-full px-3 py-2 border-b-2 border-slate-300 bg-slate-100 text-slate-700"
-                        />
-                        <p className="text-xs text-slate-500 mt-1">
-                          Linked to{" "}
-                          {String(
-                            activeMembershipForFamily?.membership.type ?? "-",
-                          )}{" "}
-                          -{" "}
-                          {String(
-                            activeMembershipForFamily?.user?.name ?? "Unknown",
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">Relation</label>
-                        <input
-                          type="text"
-                          value={familyMemberRelation}
-                          onChange={(e) =>
-                            setFamilyMemberRelation(e.target.value)
-                          }
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">First Name</label>
-                        <input
-                          type="text"
-                          value={familyMemberFirstName}
-                          onChange={(e) =>
-                            setFamilyMemberFirstName(e.target.value)
-                          }
-                          required
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">
-                          Middle Name
-                        </label>
-                        <input
-                          type="text"
-                          value={familyMemberMiddleName}
-                          onChange={(e) =>
-                            setFamilyMemberMiddleName(e.target.value)
-                          }
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">Last Name</label>
-                        <input
-                          type="text"
-                          value={familyMemberLastName}
-                          onChange={(e) =>
-                            setFamilyMemberLastName(e.target.value)
-                          }
-                          required
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">
-                          Family Name
-                        </label>
-                        <input
-                          type="text"
-                          value={familyMemberFamilyName}
-                          onChange={(e) =>
-                            setFamilyMemberFamilyName(e.target.value)
-                          }
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">Age</label>
-                        <input
-                          type="number"
-                          value={familyMemberAge}
-                          onChange={(e) => setFamilyMemberAge(e.target.value)}
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">Gender</label>
-                        <select
-                          value={familyMemberGender}
-                          onChange={(e) =>
-                            setFamilyMemberGender(e.target.value)
-                          }
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        >
-                          <option value="">Select Gender</option>
-                          <option value="MALE">MALE</option>
-                          <option value="FEMALE">FEMALE</option>
-                          <option value="OTHER">OTHER</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">Phone</label>
-                        <input
-                          type="text"
-                          value={familyMemberPhone}
-                          onChange={(e) => setFamilyMemberPhone(e.target.value)}
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">Email</label>
-                        <input
-                          type="email"
-                          value={familyMemberEmail}
-                          onChange={(e) => setFamilyMemberEmail(e.target.value)}
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <label className="flex items-center gap-2 text-sm mt-6">
-                        <input
-                          type="checkbox"
-                          checked={familyMemberActive}
-                          onChange={(e) =>
-                            setFamilyMemberActive(e.target.checked)
-                          }
-                        />
-                        Active
-                      </label>
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={isAddingFamilyMember}
-                      className={`px-4 py-2 rounded-lg text-white ${
-                        isAddingFamilyMember
-                          ? "bg-rose-300 cursor-not-allowed"
-                          : "bg-rose-500 hover:bg-rose-600"
-                      }`}
-                    >
-                      {isAddingFamilyMember ? "Adding..." : "Add Family Member"}
-                    </button>
-                    {message ? (
-                      <p className="text-sm text-slate-600">{message}</p>
-                    ) : null}
-                  </form>
-                ) : unitModalView === "history" ? (
-                  <div className="border-t pt-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-slate-700">
-                        Resident History
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUnitModalView("list");
-                          setMessage("");
-                        }}
-                        className="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100"
-                      >
-                        Back to list
-                      </button>
-                    </div>
-                    <div className="rounded-lg border border-slate-200 p-3 text-sm text-slate-600">
-                      <p>
-                        Occupancy:{" "}
-                        <span className="font-semibold text-slate-700">
-                          {currentOccupancy}
-                        </span>
-                      </p>
-                      <p>
-                        Current Owner:{" "}
-                        <span className="font-semibold text-slate-700">
-                          {currentOwnerName}
-                        </span>
-                      </p>
-                      <p>
-                        Current Tenant:{" "}
-                        <span className="font-semibold text-slate-700">
-                          {currentTenantName}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-slate-200 p-3 text-sm text-slate-600 space-y-2">
-                      <p className="font-semibold text-slate-700">
-                        Current Family Members
-                      </p>
-                      {currentFamilyMembers.length === 0 ? (
-                        <p className="text-slate-500">
-                          No active family members.
-                        </p>
-                      ) : (
-                        currentFamilyMembers.map((member, idx) => (
-                          <div
-                            key={`${toNumber(member.id)}-${idx}`}
-                            className="border border-slate-100 rounded p-2"
-                          >
-                            <p className="font-medium text-slate-700">
-                              {`${String(member.firstName ?? "")} ${String(
-                                member.middleName ?? "",
-                              )} ${String(member.lastName ?? "")}`
-                                .replace(/\s+/g, " ")
-                                .trim() || "Unknown"}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              Relation: {String(member.relation ?? "-")} |
-                              Phone: {String(member.phone ?? "-")} | Email:{" "}
-                              {String(member.email ?? "-")}
-                            </p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <div className="rounded-lg border border-slate-200 p-3 text-sm text-slate-600 space-y-2">
-                      <p className="font-semibold text-slate-700">
-                        Previous Family Members
-                      </p>
-                      {previousFamilyMembers.length === 0 ? (
-                        <p className="text-slate-500">
-                          No previous family members.
-                        </p>
-                      ) : (
-                        previousFamilyMembers.map((member, idx) => (
-                          <div
-                            key={`${toNumber(member.id)}-prev-${idx}`}
-                            className="border border-slate-100 rounded p-2"
-                          >
-                            <p className="font-medium text-slate-700">
-                              {`${String(member.firstName ?? "")} ${String(
-                                member.middleName ?? "",
-                              )} ${String(member.lastName ?? "")}`
-                                .replace(/\s+/g, " ")
-                                .trim() || "Unknown"}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              Relation: {String(member.relation ?? "-")} |
-                              Phone: {String(member.phone ?? "-")} | Email:{" "}
-                              {String(member.email ?? "-")}
-                            </p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    {isHistoryLoading ? (
-                      <p className="text-slate-600">Loading history...</p>
-                    ) : residentHistory.length === 0 ? (
-                      <p className="text-slate-500">
-                        No resident history found.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {residentHistory.map((item, idx) => {
-                          const name = String(
-                            item.userName ??
-                              (item.user as ResourceRecord | undefined)?.name ??
-                              item.name ??
-                              "Unknown Member",
-                          );
-                          const type = String(item.type ?? "-");
-                          const relation = String(item.relation ?? "-");
-                          const startDate = String(
-                            item.startDate ?? item.start_date ?? "-",
-                          );
-                          const endDate = String(
-                            item.endDate ?? item.end_date ?? "-",
-                          );
-                          const activeValue =
-                            item.isActive ??
-                            item.is_active ??
-                            item.status ??
-                            "-";
-
-                          return (
-                            <div
-                              key={`${toNumber(item.id)}-${idx}`}
-                              className="border border-slate-200 rounded-lg p-3"
-                            >
-                              <p className="font-medium text-slate-700">
-                                {name}
-                              </p>
-                              <p className="text-sm text-slate-500">
-                                Type: {type} | Relation: {relation}
-                              </p>
-                              <p className="text-sm text-slate-500">
-                                Start: {startDate} | End: {endDate}
-                              </p>
-                              <p className="text-sm text-slate-500">
-                                Status: {String(activeValue)}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ) : unitModalView === "edit-unit" ? (
+                {unitModalView === "edit-unit" ? (
                   <form
                     onSubmit={onUpdateUnit}
-                    className="border-t pt-4 space-y-3"
+                    className="border-t border-slate-100 pt-5 space-y-4"
                   >
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-slate-700">Edit Unit</h4>
+                      <h4 className="section-title">Edit unit details</h4>
                       <button
                         type="button"
                         onClick={() => {
                           setUnitModalView("list");
                           setMessage("");
                         }}
-                        className="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100"
+                        className="btn-secondary btn-sm"
                       >
                         Back to list
                       </button>
                     </div>
-                    <div className="grid md:grid-cols-2 gap-3">
+                    <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm mb-1">Wing</label>
+                        <label className="label">Wing</label>
                         <select
                           value={editUnitWingId}
                           onChange={(e) => setEditUnitWingId(e.target.value)}
                           required
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+                          className="input"
                         >
                           <option value="">Select Wing</option>
                           {wings.map((wing) => (
@@ -1264,8 +595,8 @@ export default function UnitHomesPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm mb-1">
-                          Floor Number
+                        <label className="label">
+                          Floor
                         </label>
                         <input
                           type="number"
@@ -1274,11 +605,11 @@ export default function UnitHomesPage() {
                             setEditUnitFloorNumber(e.target.value)
                           }
                           required
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+                          className="input"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1">
+                        <label className="label">
                           Unit Number
                         </label>
                         <input
@@ -1286,57 +617,54 @@ export default function UnitHomesPage() {
                           value={editUnitNumber}
                           onChange={(e) => setEditUnitNumber(e.target.value)}
                           required
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+                          className="input"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1">
-                          Parking Slots
+                        <label className="label">
+                          Parking
                         </label>
                         <input
-                          type="number"
+                          type="text"
+                          placeholder="e.g. P-12, B1-04"
                           value={editUnitParkingSlots}
                           onChange={(e) =>
                             setEditUnitParkingSlots(e.target.value)
                           }
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+                          className="input"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1">
-                          Area (Sqft)
+                        <label className="label">
+                          Area (sq ft)
                         </label>
                         <input
                           type="number"
                           value={editUnitAreaSqft}
                           onChange={(e) => setEditUnitAreaSqft(e.target.value)}
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+                          className="input"
                         />
                       </div>
                     </div>
                     <button
                       type="submit"
                       disabled={isUpdatingUnit}
-                      className={`px-4 py-2 rounded-lg text-white ${
-                        isUpdatingUnit
-                          ? "bg-rose-300 cursor-not-allowed"
-                          : "bg-rose-500 hover:bg-rose-600"
-                      }`}
+                      className="btn-primary"
                     >
-                      {isUpdatingUnit ? "Updating..." : "Update Unit"}
+                      {isUpdatingUnit ? "Saving..." : "Save changes"}
                     </button>
                     {message ? (
-                      <p className="text-sm text-slate-600">{message}</p>
+                      <p className={/success/i.test(message) ? "alert-success" : "alert-error"}>{message}</p>
                     ) : null}
                   </form>
                 ) : unitModalView === "create-unit" ? (
                   <form
                     onSubmit={onCreateUnit}
-                    className="border-t pt-4 space-y-3"
+                    className="border-t border-slate-100 pt-5 space-y-4"
                   >
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-slate-700">
-                        Add New Unit
+                      <h4 className="section-title">
+                        Unit details{selectedSlotNumber ? ` · planned unit ${selectedSlotNumber}` : ""}
                       </h4>
                       <button
                         type="button"
@@ -1344,19 +672,19 @@ export default function UnitHomesPage() {
                           setUnitModalView("list");
                           setMessage("");
                         }}
-                        className="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100"
+                        className="btn-secondary btn-sm"
                       >
                         Back to list
                       </button>
                     </div>
-                    <div className="grid md:grid-cols-2 gap-3">
+                    <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm mb-1">Wing</label>
+                        <label className="label">Wing</label>
                         <select
                           value={newUnitWingId}
                           onChange={(e) => setNewUnitWingId(e.target.value)}
                           required
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+                          className="input"
                         >
                           <option value="">Select Wing</option>
                           {wings.map((wing) => (
@@ -1370,8 +698,8 @@ export default function UnitHomesPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm mb-1">
-                          Floor Number
+                        <label className="label">
+                          Floor
                         </label>
                         <input
                           type="number"
@@ -1380,11 +708,11 @@ export default function UnitHomesPage() {
                             setNewUnitFloorNumber(e.target.value)
                           }
                           required
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+                          className="input"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1">
+                        <label className="label">
                           Unit Number
                         </label>
                         <input
@@ -1392,225 +720,65 @@ export default function UnitHomesPage() {
                           value={newUnitNumber}
                           onChange={(e) => setNewUnitNumber(e.target.value)}
                           required
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+                          className="input"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1">
-                          Parking Slots
+                        <label className="label">
+                          Parking
                         </label>
                         <input
-                          type="number"
+                          type="text"
+                          placeholder="e.g. P-12, B1-04"
                           value={newUnitParkingSlots}
                           onChange={(e) =>
                             setNewUnitParkingSlots(e.target.value)
                           }
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+                          className="input"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1">
-                          Area (Sqft)
+                        <label className="label">
+                          Area (sq ft)
                         </label>
                         <input
                           type="number"
                           value={newUnitAreaSqft}
                           onChange={(e) => setNewUnitAreaSqft(e.target.value)}
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+                          className="input"
                         />
                       </div>
                     </div>
                     <button
                       type="submit"
                       disabled={isCreatingUnit}
-                      className={`px-4 py-2 rounded-lg text-white ${
-                        isCreatingUnit
-                          ? "bg-rose-300 cursor-not-allowed"
-                          : "bg-rose-500 hover:bg-rose-600"
-                      }`}
+                      className="btn-primary"
                     >
-                      {isCreatingUnit ? "Creating..." : "Create Unit"}
+                      {isCreatingUnit ? "Saving..." : "Save unit"}
                     </button>
                     {message ? (
-                      <p className="text-sm text-slate-600">{message}</p>
+                      <p className={/success/i.test(message) ? "alert-success" : "alert-error"}>{message}</p>
                     ) : null}
                   </form>
+                ) : selectedUnit ? (
+                  <>
+                    {canEditUnit ? (
+                      <div className="flex justify-end">
+                        <button type="button" onClick={openEditUnitForm} className="btn-secondary btn-sm">
+                          Edit unit details
+                        </button>
+                      </div>
+                    ) : null}
+                    <UnitHouseholdPanel
+                      key={toId(selectedUnit.id)}
+                      societyId={effectiveSocietyId}
+                      unitId={toNumber(selectedUnit.id)}
+                    />
+                  </>
                 ) : (
-                  <form
-                    onSubmit={onAddMember}
-                    className="border-t pt-4 space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-slate-700">Add Member</h4>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUnitModalView("list");
-                          setMessage("");
-                        }}
-                        className="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100"
-                      >
-                        Back to list
-                      </button>
-                    </div>
-                    <div className="grid md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm mb-1">Name</label>
-                        <input
-                          type="text"
-                          value={memberName}
-                          onChange={(e) => setMemberName(e.target.value)}
-                          required
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">Phone</label>
-                        <input
-                          type="text"
-                          value={memberPhone}
-                          onChange={(e) => setMemberPhone(e.target.value)}
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">Email</label>
-                        <input
-                          type="email"
-                          value={memberEmail}
-                          onChange={(e) => setMemberEmail(e.target.value)}
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">Type</label>
-                        <select
-                          value={memberType}
-                          onChange={(e) => setMemberType(e.target.value)}
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        >
-                          <option value="OWNER">OWNER</option>
-                          <option value="TENANT">TENANT</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">Relation</label>
-                        <input
-                          type="text"
-                          value={memberRelation}
-                          onChange={(e) => setMemberRelation(e.target.value)}
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div className="md:col-span-2 rounded-lg border border-rose-100 bg-rose-50/40 p-3">
-                        <p className="text-sm font-medium text-rose-700 mb-2">
-                          Primary Family Details
-                        </p>
-                        <div className="grid md:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-sm mb-1">
-                              First Name
-                            </label>
-                            <input
-                              type="text"
-                              value={familyFirstName}
-                              onChange={(e) =>
-                                setFamilyFirstName(e.target.value)
-                              }
-                              required
-                              className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm mb-1">
-                              Middle Name
-                            </label>
-                            <input
-                              type="text"
-                              value={familyMiddleName}
-                              onChange={(e) =>
-                                setFamilyMiddleName(e.target.value)
-                              }
-                              className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm mb-1">
-                              Last Name
-                            </label>
-                            <input
-                              type="text"
-                              value={familyLastName}
-                              onChange={(e) =>
-                                setFamilyLastName(e.target.value)
-                              }
-                              required
-                              className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm mb-1">
-                              Family Name
-                            </label>
-                            <input
-                              type="text"
-                              value={familyName}
-                              onChange={(e) => setFamilyName(e.target.value)}
-                              className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">Start Date</label>
-                        <input
-                          type="date"
-                          value={memberStartDate}
-                          onChange={(e) => setMemberStartDate(e.target.value)}
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1">End Date</label>
-                        <input
-                          type="date"
-                          value={memberEndDate}
-                          onChange={(e) => setMemberEndDate(e.target.value)}
-                          className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                        />
-                      </div>
-                      <label className="flex items-center gap-2 text-sm mt-6">
-                        <input
-                          type="checkbox"
-                          checked={memberPrimary}
-                          onChange={(e) => setMemberPrimary(e.target.checked)}
-                        />
-                        Primary
-                      </label>
-                      <label className="flex items-center gap-2 text-sm mt-6">
-                        <input
-                          type="checkbox"
-                          checked={memberActive}
-                          onChange={(e) => setMemberActive(e.target.checked)}
-                        />
-                        Active
-                      </label>
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={isAddingMember}
-                      className={`px-4 py-2 rounded-lg text-white ${
-                        isAddingMember
-                          ? "bg-rose-300 cursor-not-allowed"
-                          : "bg-rose-500 hover:bg-rose-600"
-                      }`}
-                    >
-                      {isAddingMember ? "Adding..." : "Add Member"}
-                    </button>
-                    {message ? (
-                      <p className="text-sm text-slate-600">{message}</p>
-                    ) : null}
-                  </form>
+                  <button type="button" onClick={openUnitDetailsForm} className="btn-primary">
+                    Add unit details
+                  </button>
                 )}
               </div>
             </div>

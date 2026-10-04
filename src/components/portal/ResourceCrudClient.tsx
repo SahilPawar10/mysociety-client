@@ -1,12 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   useCreateResourceMutation,
   useDeleteResourceMutation,
   useGetResourceListQuery,
-  useExportFileMutation,
-  useImportFileMutation,
   useUpdateResourceMutation,
   type ResourceRecord,
 } from "@/lib/features/portal/portalApi";
@@ -14,17 +13,17 @@ import {
   RESOURCE_CONFIG_MAP,
   type ResourceConfig,
   type ResourceField,
+  type TableColumn,
 } from "@/lib/features/portal/resourceConfig";
 import { useAppSelector } from "@/lib/hooks";
 import ImportExportActions from "@/components/importexport/page";
+import { errorMessage } from "@/lib/api";
 
 type Props = {
   resource: string;
 };
 
 type FormState = Record<string, string | boolean>;
-type TableColumn = { name: string; label: string };
-
 const RELATION_FIELD_TO_RESOURCE: Record<string, string> = {
   societyId: "society",
   wingId: "wing",
@@ -52,13 +51,8 @@ const getRelationOptionLabel = (
     return String(item.name ?? item.email ?? item.phone ?? "User");
   }
   if (relationResource === "unit-membership") {
-    return String(
-      item.userName ??
-        item.type ??
-        item.id ??
-        item.unitId ??
-        "Unit Membership",
-    );
+    const unit = [item.wingName, item.roomNo].filter(Boolean).join(" - ");
+    return `${String(item.userName ?? "Resident")}${unit ? ` · ${unit}` : ""}${item.type ? ` (${String(item.type)})` : ""}`;
   }
   return String(item.name ?? "Record");
 };
@@ -117,12 +111,11 @@ export default function ResourceCrudClient({ resource }: Props) {
   const hasSocietyField = Boolean(
     config?.fields.some((field) => field.name === "societyId"),
   );
-  const needsSocietyCounts =
-    resource === "wing" || resource === "unit" || resource === "society";
   const needsSocietySelector =
     isSuperAdmin && hasSocietyField && resource !== "society";
+  // Everyone except SUPER_ADMIN works inside their own society (the backend enforces it too).
   const effectiveSocietyId =
-    isSocietyAdmin && Number.isFinite(societyId)
+    !isSuperAdmin && Number.isFinite(societyId)
       ? societyId
       : needsSocietySelector && selectedSocietyId
         ? Number(selectedSocietyId)
@@ -140,7 +133,7 @@ export default function ResourceCrudClient({ resource }: Props) {
   );
   const { data: societies } = useGetResourceListQuery(
     { resource: "society" },
-    { skip: !(needsSocietySelector || (isSocietyAdmin && needsSocietyCounts)) },
+    { skip: !needsSocietySelector },
   );
 
   const [createResource, { isLoading: isCreating }] =
@@ -149,8 +142,6 @@ export default function ResourceCrudClient({ resource }: Props) {
     useUpdateResourceMutation();
   const [deleteResource, { isLoading: isDeleting }] =
     useDeleteResourceMutation();
-  const [importFile] = useImportFileMutation();
-  const [exportFile] = useExportFileMutation();
 
   const canWrite = useMemo(() => {
     if (isSuperAdmin) {
@@ -159,8 +150,9 @@ export default function ResourceCrudClient({ resource }: Props) {
     if (isSocietyAdmin) {
       return true;
     }
-    return false;
-  }, [isSocietyAdmin, isSuperAdmin]);
+    // Members may only raise complaints.
+    return resource === "complaint";
+  }, [isSocietyAdmin, isSuperAdmin, resource]);
 
   const canCreate = useMemo(() => {
     if (!canWrite) {
@@ -181,15 +173,18 @@ export default function ResourceCrudClient({ resource }: Props) {
     selectedSocietyId,
   ]);
 
+  // Editing and deleting stay admin-only (members only add complaints).
+  const canEdit = isSuperAdmin || isSocietyAdmin;
+
   const canDelete = useMemo(() => {
-    if (!canWrite) {
+    if (!canEdit) {
       return false;
     }
     if (isSocietyAdmin && resource === "society") {
       return false;
     }
     return true;
-  }, [canWrite, isSocietyAdmin, resource]);
+  }, [canEdit, isSocietyAdmin, resource]);
 
   const visibleFields = useMemo(() => {
     if (!config) {
@@ -207,15 +202,13 @@ export default function ResourceCrudClient({ resource }: Props) {
     });
   }, [config, isSocietyAdmin, needsSocietySelector]);
 
-  const needsWingOptions = visibleFields.some(
-    (field) => field.name === "wingId",
-  );
-  const needsUnitOptions = visibleFields.some(
-    (field) => field.name === "unitId",
-  );
-  const needsUnitMembershipOptions = visibleFields.some(
-    (field) => field.name === "unitMembershipId",
-  );
+  const columnAndFieldNames = [
+    ...visibleFields.map((field) => field.name),
+    ...(config?.columns ?? []).map((column) => column.name),
+  ];
+  const needsWingOptions = columnAndFieldNames.includes("wingId");
+  const needsUnitOptions = columnAndFieldNames.includes("unitId");
+  const needsUnitMembershipOptions = columnAndFieldNames.includes("unitMembershipId");
   const needsUserOptions = visibleFields.some((field) =>
     ["userId", "raisedByUserId", "createdBy"].includes(field.name),
   );
@@ -236,30 +229,6 @@ export default function ResourceCrudClient({ resource }: Props) {
     { resource: "user", societyId: effectiveSocietyId },
     { skip: !needsUserOptions || !effectiveSocietyId },
   );
-
-  const tableColumns = useMemo(
-    () => visibleFields.slice(0, 6),
-    [visibleFields],
-  );
-
-  const currentSocietyRecord = useMemo(() => {
-    if (!societies || societies.length === 0) {
-      return undefined;
-    }
-    if (
-      resource === "society" &&
-      isSocietyAdmin &&
-      Number.isFinite(societyId)
-    ) {
-      return societies.find((s) => Number(s.id) === societyId);
-    }
-
-    const targetSocietyId = effectiveSocietyId;
-    if (!targetSocietyId) {
-      return undefined;
-    }
-    return societies.find((s) => Number(s.id) === Number(targetSocietyId));
-  }, [effectiveSocietyId, isSocietyAdmin, resource, societies, societyId]);
 
   const scopedData = useMemo(() => {
     const records = data ?? [];
@@ -295,52 +264,44 @@ export default function ResourceCrudClient({ resource }: Props) {
     societyId,
   ]);
 
-  const tableDisplayColumns = useMemo<TableColumn[]>(() => {
-    const sample = scopedData[0];
+  const tableDisplayColumns = useMemo<TableColumn[]>(
+    () =>
+      config?.columns ??
+      visibleFields
+        .filter((field) => field.type !== "textarea")
+        .slice(0, 6)
+        .map((field) => ({ name: field.name, label: field.label })),
+    [config, visibleFields],
+  );
 
-    if (!sample) {
-      return tableColumns.map((field) => ({
-        name: field.name,
-        label: field.label,
-      }));
+  // Relation ids (unitId, userId, unitMembershipId…) are shown by name.
+  const relationOptions: Record<string, ResourceRecord[] | undefined> = {
+    society: societies,
+    wing: wingOptions,
+    unit: unitOptions,
+    "unit-membership": unitMembershipOptions,
+    user: userOptions,
+  };
+  const cellText = (row: ResourceRecord, column: TableColumn) => {
+    if (column.value) {
+      return column.value(row) || "—";
     }
-
-    const sampleKeys = new Set(Object.keys(sample));
-    const base: TableColumn[] = tableColumns
-      .filter((field) => sampleKeys.has(field.name))
-      .map((field) => ({
-        name: field.name,
-        label: field.label,
-      }));
-
-    const baseNames = new Set(base.map((field) => field.name));
-    const extras: TableColumn[] = [];
-
-    Object.keys(sample).forEach((key) => {
-      if (
-        key === "id" ||
-        key === "createdAt" ||
-        key === "updatedAt" ||
-        baseNames.has(key)
-      ) {
-        return;
-      }
-
-      extras.push({
-        name: key,
-        label: key
-          .replace(/([A-Z])/g, " $1")
-          .replace(/^./, (c) => c.toUpperCase()),
-      });
-    });
-
-    return [...base, ...extras];
-  }, [scopedData, tableColumns]);
+    const raw = row[column.name];
+    if (raw === null || raw === undefined || raw === "") {
+      return "—";
+    }
+    const relationResource = RELATION_FIELD_TO_RESOURCE[column.name];
+    if (relationResource) {
+      const item = relationOptions[relationResource]?.find((o) => String(o.id) === String(raw));
+      return item ? getRelationOptionLabel(relationResource, item) : "—";
+    }
+    return String(raw);
+  };
 
   if (!config) {
     return (
       <section className="space-y-4">
-        <h2 className="text-2xl font-semibold text-rose-600">
+        <h2 className="page-title">
           Unknown resource
         </h2>
         <p className="text-slate-600">No configuration found for: {resource}</p>
@@ -351,7 +312,7 @@ export default function ResourceCrudClient({ resource }: Props) {
   if (!mounted) {
     return (
       <section className="space-y-4">
-        <h2 className="text-2xl font-semibold text-rose-600">
+        <h2 className="page-title">
           {config.label}
         </h2>
         <p className="text-slate-600">Loading...</p>
@@ -371,7 +332,7 @@ export default function ResourceCrudClient({ resource }: Props) {
   };
 
   const openEdit = (row: ResourceRecord) => {
-    if (!canWrite) {
+    if (!canEdit) {
       return;
     }
 
@@ -474,36 +435,18 @@ export default function ResourceCrudClient({ resource }: Props) {
       delete payload.primaryFamilyName;
     }
 
-    if (editingId === null && (resource === "wing" || resource === "unit")) {
-      const maxCount =
-        resource === "wing"
-          ? Number(currentSocietyRecord?.wingsCount ?? 0)
-          : Number(currentSocietyRecord?.unitsCount ?? 0);
-      const currentCount = scopedData.length;
-
-      if (
-        Number.isFinite(maxCount) &&
-        maxCount >= 0 &&
-        currentCount >= maxCount
-      ) {
-        setFeedback(
-          `Cannot create more ${resource === "wing" ? "wings" : "units"} than configured count (${maxCount}).`,
-        );
-        return;
-      }
-    }
-
+    // Wing/unit limits (0 = no limit) are enforced by the backend; its message is shown below.
     try {
       if (editingId !== null) {
-        await updateResource({ resource, id: editingId, payload }).unwrap();
+        await updateResource({ resource, id: editingId, payload, societyId: effectiveSocietyId }).unwrap();
         setFeedback("Updated successfully.");
       } else {
         await createResource({ resource, payload }).unwrap();
         setFeedback("Created successfully.");
       }
       closeForm();
-    } catch {
-      setFeedback("Request failed. Check field values and IDs.");
+    } catch (error) {
+      setFeedback(errorMessage(error, "Request failed. Check field values and IDs."));
     }
   };
 
@@ -513,104 +456,162 @@ export default function ResourceCrudClient({ resource }: Props) {
     }
 
     try {
-      await deleteResource({ resource, id }).unwrap();
+      await deleteResource({ resource, id, societyId: effectiveSocietyId }).unwrap();
       setFeedback("Deleted successfully.");
-    } catch {
-      setFeedback("Delete failed.");
+    } catch (error) {
+      setFeedback(errorMessage(error, "Delete failed."));
     }
   };
 
-  const handleMembershipImport = async (file: File) => {
-    if (!effectiveSocietyId) {
-      return;
-    }
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
+  const setField = (name: string, value: string | boolean) =>
+    setFormState((prev) => ({ ...prev, [name]: value }));
 
-      await importFile({
-        url: `/v1/unit-membership/import?societyId=${effectiveSocietyId}`,
-        data: formData,
-      }).unwrap();
-    } catch {
-      setFeedback("Import failed.");
+  const renderField = (field: ResourceField) => {
+    const currentValue = formState[field.name] ?? (field.type === "checkbox" ? false : "");
+    const label = (
+      <label className="label" htmlFor={`f-${field.name}`}>
+        {field.label}
+        </label>
+    );
+
+    if (field.type === "checkbox") {
+      return (
+        <label
+          key={field.name}
+          className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 self-end"
+        >
+          <input
+            type="checkbox"
+            checked={Boolean(currentValue)}
+            onChange={(e) => setField(field.name, e.target.checked)}
+          />
+          {field.label}
+        </label>
+      );
+    }
+
+    if (field.type === "textarea") {
+      return (
+        <div key={field.name} className="md:col-span-2">
+          {label}
+          <textarea
+            id={`f-${field.name}`}
+            value={String(currentValue)}
+            onChange={(e) => setField(field.name, e.target.value)}
+            required={field.required}
+            className="input"
+          />
+        </div>
+      );
+    }
+
+    const relationResource = RELATION_FIELD_TO_RESOURCE[field.name];
+    if (field.type === "select" || (field.type === "number" && relationResource)) {
+      const options: { value: string; label: string }[] =
+        field.type === "select"
+          ? resource === "user" && isSocietyAdmin && field.name === "role"
+            ? (field.options ?? []).filter((option) => option.value !== "SUPER_ADMIN")
+            : (field.options ?? [])
+          : (relationResource === "wing"
+              ? (wingOptions ?? [])
+              : relationResource === "unit"
+                ? (unitOptions ?? [])
+                : relationResource === "unit-membership"
+                  ? (unitMembershipOptions ?? [])
+                  : relationResource === "user"
+                    ? (userOptions ?? [])
+                    : (societies ?? [])
+            ).map((item) => ({
+              value: String(item.id),
+              label: getRelationOptionLabel(relationResource, item),
+            }));
+
+      return (
+        <div key={field.name}>
+          {label}
+          <select
+            id={`f-${field.name}`}
+            value={String(currentValue)}
+            onChange={(e) => setField(field.name, e.target.value)}
+            required={field.required}
+            className="input"
+          >
+            <option value="">Select {field.label.toLowerCase()}</option>
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.name}>
+        {label}
+        <input
+          id={`f-${field.name}`}
+          type={field.type}
+          value={String(currentValue)}
+          onChange={(e) => setField(field.name, e.target.value)}
+          required={field.required}
+          className="input"
+        />
+      </div>
+    );
+  };
+
+  const confirmDelete = (id: number | string | undefined) => {
+    if (window.confirm("Delete this record? This cannot be undone.")) {
+      onDelete(id);
     }
   };
 
-  const handleMembershipExport = async () => {
-    const blob = await exportFile("/unit-membership/export").unwrap();
-
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "unit-memberships.xlsx";
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  const handleMembershipTemplateDownload = async () => {
-    if (!effectiveSocietyId) {
-      return;
-    }
-    const blob = await exportFile(
-      `/v1/unit-membership/import/template?societyId=${effectiveSocietyId}`,
-    ).unwrap();
-
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "unit-memberships-template.xlsx";
-    a.click();
-
-    window.URL.revokeObjectURL(url);
-  };
+  const isSaving = isCreating || isUpdating;
+  const showTable =
+    isApiEnabled && !isLoading && !isError && !(needsSocietySelector && !selectedSocietyId);
+  const singular = config.label.replace(/ies$/, "y").replace(/s$/, "").toLowerCase();
 
   return (
-    <section className="space-y-5 min-w-0">
-      <div className="flex items-center justify-between">
+    <section className="space-y-6 min-w-0">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl font-semibold text-rose-600">
-            {config.label}
-          </h2>
-          <p className="text-sm text-slate-500">{config.description}</p>
+          <h2 className="page-title">{config.label}</h2>
+          <p className="page-subtitle">{config.description}</p>
         </div>
         {isApiEnabled ? (
           <div className="flex items-center gap-2">
-            {resource === "unit-membership" ? (
-              <ImportExportActions
-                onImport={handleMembershipImport}
-                onExport={handleMembershipExport}
-                templateDownload={handleMembershipTemplateDownload}
-              />
+            {resource === "unit-membership" && effectiveSocietyId ? (
+              <ImportExportActions kind="unit-membership" societyId={effectiveSocietyId} />
             ) : null}
-            <button
-              type="button"
-              onClick={openCreate}
-              disabled={!canCreate}
-              className={`px-4 py-2 rounded-lg text-white ${
-                canCreate
-                  ? "bg-rose-500 hover:bg-rose-600"
-                  : "bg-slate-300 cursor-not-allowed"
-              }`}
-            >
-              Add New
-            </button>
+            {resource === "society" ? (
+              isSuperAdmin ? (
+                <Link href="/portal/onboard-society" className="btn-primary">
+                  + Onboard society
+                </Link>
+              ) : null
+            ) : canWrite ? (
+              <button type="button" onClick={openCreate} disabled={!canCreate} className="btn-primary">
+                + Add {singular}
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>
 
       {needsSocietySelector ? (
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <label className="block text-sm font-medium mb-1">
-            Select Society
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-slate-600" htmlFor="society-picker">
+            Society
           </label>
           <select
+            id="society-picker"
             value={selectedSocietyId}
             onChange={(e) => setSelectedSocietyId(e.target.value)}
-            className="w-full max-w-sm px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
+            className="input max-w-xs"
           >
-            <option value="">Select society</option>
+            <option value="">Select a society</option>
             {(societies ?? []).map((society) => (
               <option key={String(society.id)} value={String(society.id)}>
                 {String(society.name ?? `Society ${society.id}`)}
@@ -620,315 +621,126 @@ export default function ResourceCrudClient({ resource }: Props) {
         </div>
       ) : null}
 
-      {!isApiEnabled ? (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4">
-          Backend route is not available for this table yet.
-        </div>
-      ) : null}
-
-      {isApiEnabled && !canWrite ? (
-        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
-          You have read-only access for this resource.
-        </div>
-      ) : null}
-
-      {isApiEnabled && isFormOpen && canWrite ? (
-        <form
-          onSubmit={onSubmit}
-          className="bg-white rounded-xl shadow-sm p-6 space-y-4"
-        >
-          <h3 className="text-lg font-semibold text-slate-700">
-            {editingId !== null ? "Edit Record" : "Create Record"}
-          </h3>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            {visibleFields.map((field) => {
-              const currentValue =
-                formState[field.name] ??
-                (field.type === "checkbox" ? false : "");
-
-              if (field.type === "textarea") {
-                return (
-                  <div key={field.name} className="text-left md:col-span-2">
-                    <label className="block text-sm font-medium mb-1">
-                      {field.label}
-                    </label>
-                    <textarea
-                      value={String(currentValue)}
-                      onChange={(e) =>
-                        setFormState((prev) => ({
-                          ...prev,
-                          [field.name]: e.target.value,
-                        }))
-                      }
-                      required={field.required}
-                      className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                    />
-                  </div>
-                );
-              }
-
-              if (field.type === "select") {
-                const options =
-                  resource === "user" && isSocietyAdmin && field.name === "role"
-                    ? (field.options ?? []).filter(
-                        (option) => option.value !== "SUPER_ADMIN",
-                      )
-                    : (field.options ?? []);
-
-                return (
-                  <div key={field.name} className="text-left">
-                    <label className="block text-sm font-medium mb-1">
-                      {field.label}
-                    </label>
-                    <select
-                      value={String(currentValue)}
-                      onChange={(e) =>
-                        setFormState((prev) => ({
-                          ...prev,
-                          [field.name]: e.target.value,
-                        }))
-                      }
-                      required={field.required}
-                      className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                    >
-                      <option value="">Select {field.label}</option>
-                      {options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              }
-
-              const relationResource = RELATION_FIELD_TO_RESOURCE[field.name];
-              if (field.type === "number" && relationResource) {
-                const source =
-                  relationResource === "wing"
-                    ? (wingOptions ?? [])
-                    : relationResource === "unit"
-                      ? (unitOptions ?? [])
-                      : relationResource === "unit-membership"
-                        ? (unitMembershipOptions ?? [])
-                      : relationResource === "user"
-                        ? (userOptions ?? [])
-                        : (societies ?? []);
-
-                return (
-                  <div key={field.name} className="text-left">
-                    <label className="block text-sm font-medium mb-1">
-                      {field.label}
-                    </label>
-                    <select
-                      value={String(currentValue)}
-                      onChange={(e) =>
-                        setFormState((prev) => ({
-                          ...prev,
-                          [field.name]: e.target.value,
-                        }))
-                      }
-                      required={field.required}
-                      className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                    >
-                      <option value="">Select {field.label}</option>
-                      {source.map((item) => {
-                        const label = getRelationOptionLabel(
-                          relationResource,
-                          item,
-                        );
-                        return (
-                          <option key={String(item.id)} value={String(item.id)}>
-                            {label}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                );
-              }
-
-              if (field.type === "checkbox") {
-                return (
-                  <label
-                    key={field.name}
-                    className="flex items-center gap-3 text-slate-700 mt-6"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={Boolean(currentValue)}
-                      onChange={(e) =>
-                        setFormState((prev) => ({
-                          ...prev,
-                          [field.name]: e.target.checked,
-                        }))
-                      }
-                      className="h-4 w-4"
-                    />
-                    {field.label}
-                  </label>
-                );
-              }
-
-              return (
-                <div key={field.name} className="text-left">
-                  <label className="block text-sm font-medium mb-1">
-                    {field.label}
-                  </label>
-                  <input
-                    type={field.type}
-                    value={String(currentValue)}
-                    onChange={(e) =>
-                      setFormState((prev) => ({
-                        ...prev,
-                        [field.name]: e.target.value,
-                      }))
-                    }
-                    required={field.required}
-                    className="w-full px-3 py-2 border-b-2 border-rose-400 focus:outline-none focus:border-rose-600"
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={isCreating || isUpdating}
-              className={`px-4 py-2 rounded-lg text-white ${
-                isCreating || isUpdating
-                  ? "bg-rose-300 cursor-not-allowed"
-                  : "bg-rose-500 hover:bg-rose-600"
-              }`}
-            >
-              {isCreating || isUpdating
-                ? "Saving..."
-                : editingId !== null
-                  ? "Update"
-                  : "Create"}
-            </button>
-            <button
-              type="button"
-              onClick={closeForm}
-              className="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-100"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : null}
+      {!isApiEnabled ? <p className="alert-warn">This section isn&apos;t available yet.</p> : null}
 
       {feedback ? (
-        <div className="bg-slate-100 text-slate-700 rounded-lg px-4 py-2 text-sm">
-          {feedback}
-        </div>
+        <p className={/success/i.test(feedback) ? "alert-success" : "alert-error"}>{feedback}</p>
       ) : null}
 
       {isApiEnabled && isLoading ? (
-        <p className="text-slate-600">Loading {config.label}...</p>
+        <div className="card p-6 space-y-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-8 rounded-lg bg-slate-100 animate-pulse" />
+          ))}
+        </div>
       ) : null}
+
       {isApiEnabled && isError ? (
-        <div className="bg-white rounded-xl shadow-sm p-6 space-y-3">
-          <p className="text-red-600">Failed to load records.</p>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg"
-          >
-            Retry
+        <div className="card p-6 space-y-3">
+          <p className="alert-error">Couldn&apos;t load {config.label.toLowerCase()}.</p>
+          <button type="button" onClick={() => refetch()} className="btn-secondary">
+            Try again
           </button>
         </div>
       ) : null}
 
       {needsSocietySelector && !selectedSocietyId ? (
-        <div className="bg-white rounded-xl shadow-sm p-6 text-slate-600">
-          Select a society to view data.
+        <div className="card p-10 text-center">
+          <p className="section-title">Pick a society</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Choose a society above to see its {config.label.toLowerCase()}.
+          </p>
         </div>
       ) : null}
 
-      {isApiEnabled &&
-      !isLoading &&
-      !isError &&
-      !(needsSocietySelector && !selectedSocietyId) ? (
-        <div className="bg-white rounded-xl shadow-sm w-full max-w-full overflow-x-auto">
-          <table className="w-full min-w-max text-sm table-auto">
-            <thead className="bg-rose-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                  ID
-                </th>
-                {tableDisplayColumns.map((field) => (
-                  <th
-                    key={field.name}
-                    className="px-4 py-3 text-left font-semibold text-slate-700"
-                  >
-                    {field.label}
-                  </th>
-                ))}
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {scopedData.map((row, index) => (
-                <tr
-                  key={String(row.id ?? `row-${index}`)}
-                  className="border-t border-slate-100"
-                >
-                  <td className="px-4 py-3 whitespace-nowrap">{String(row.id ?? "-")}</td>
-                  {tableDisplayColumns.map((field) => (
-                    <td
-                      key={field.name}
-                      className="px-4 py-3 max-w-[220px] whitespace-normal break-all"
-                    >
-                      {String(row[field.name] ?? "-")}
-                    </td>
-                  ))}
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(row)}
-                        disabled={!canWrite}
-                        className={`px-3 py-1 rounded ${
-                          canWrite
-                            ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
-                            : "bg-slate-200 text-slate-500 cursor-not-allowed"
-                        }`}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(row.id)}
-                        disabled={isDeleting || !canDelete}
-                        className={`px-3 py-1 rounded text-white ${
-                          isDeleting || !canDelete
-                            ? "bg-slate-300"
-                            : "bg-red-500 hover:bg-red-600"
-                        }`}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {scopedData.length === 0 ? (
+      {showTable ? (
+        <div className="card w-full max-w-full overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="table min-w-max">
+              <thead>
                 <tr>
-                  <td
-                    colSpan={tableDisplayColumns.length + 2}
-                    className="px-4 py-6 text-center text-slate-500"
-                  >
-                    No records found.
-                  </td>
+                  {tableDisplayColumns.map((field) => (
+                    <th key={field.name}>{field.label}</th>
+                  ))}
+                  {canEdit ? <th className="text-right">Actions</th> : null}
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {scopedData.map((row, index) => (
+                  <tr key={String(row.id ?? `row-${index}`)}>
+                    {tableDisplayColumns.map((field) => (
+                      <td key={field.name} className="max-w-[240px] whitespace-normal break-words">
+                        {typeof row[field.name] === "boolean" ? (
+                          <span className={`badge ${row[field.name] ? "bg-brand-50 text-brand-700" : ""}`}>
+                            {row[field.name] ? "Yes" : "No"}
+                          </span>
+                        ) : (
+                          cellText(row, field)
+                        )}
+                      </td>
+                    ))}
+                    {canEdit ? (
+                      <td className="whitespace-nowrap text-right">
+                        <div className="inline-flex gap-2">
+                          <button type="button" onClick={() => openEdit(row)} className="btn-secondary btn-sm">
+                            Edit
+                          </button>
+                          {canDelete ? (
+                            <button
+                              type="button"
+                              onClick={() => confirmDelete(row.id)}
+                              disabled={isDeleting}
+                              className="btn-danger btn-sm"
+                            >
+                              Delete
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    ) : null}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {scopedData.length === 0 ? (
+            <div className="p-10 text-center">
+              <p className="section-title">Nothing here yet</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {!canCreate
+                  ? "Records will appear here once they are added."
+                  : resource === "unit-membership"
+                    ? "Import residents from Excel or add them one by one."
+                    : "Add the first one with the button above."}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {isApiEnabled && isFormOpen && canWrite ? (
+        <div className="modal-backdrop" onClick={closeForm}>
+          <form onSubmit={onSubmit} className="modal max-w-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <h3 className="text-lg font-semibold text-slate-900">
+                {editingId !== null ? `Edit ${singular}` : `New ${singular}`}
+              </h3>
+              <button type="button" onClick={closeForm} className="btn-ghost btn-sm" aria-label="Close">
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">{visibleFields.map(renderField)}</div>
+
+            <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-5">
+              <button type="button" onClick={closeForm} className="btn-secondary">
+                Cancel
+              </button>
+              <button type="submit" disabled={isSaving} className="btn-primary">
+                {isSaving ? "Saving..." : editingId !== null ? "Save changes" : "Create"}
+              </button>
+            </div>
+          </form>
         </div>
       ) : null}
     </section>
