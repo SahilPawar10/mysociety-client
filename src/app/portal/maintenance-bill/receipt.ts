@@ -42,11 +42,11 @@ export const inWords = (amount: number) => {
 const monthLabel = (m: string) =>
   new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
 
-const RED = "#b3261e";
-const BLUE = "#1e3a8a";
+export const RED = "#b3261e";
+export const BLUE = "#1e3a8a";
 
 // Mukta covers Devanagari and Latin, so Marathi or English names both render (public/fonts, OFL licence).
-const loadPdfMake = async () => {
+export const loadPdfMake = async () => {
   const mod = await import("pdfmake");
   const pdfMake = (mod as unknown as { default?: typeof mod }).default ?? mod;
   const origin = window.location.origin;
@@ -63,11 +63,11 @@ const loadPdfMake = async () => {
 };
 
 /** "Label  value" with the filled-in value in blue, like ink on the printed books. */
-const field = (label: string, value: unknown): Content => ({
+export const field = (label: string, value: unknown): Content => ({
   text: [`${label}  `, { text: String(value ?? ""), color: BLUE, bold: true }],
 });
 
-const amountCells = (amount: string): Content[] => {
+export const amountCells = (amount: string): Content[] => {
   if (amount === "") return [{ text: "" }, { text: "" }];
   const [rs, ps] = Number(amount).toFixed(2).split(".");
   return [

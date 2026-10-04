@@ -56,7 +56,7 @@ export default function MaintenancePage() {
     <section className="space-y-6">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="page-title">Maintenance</h2>
+          <h2 className="page-title">Monthly Maintenance</h2>
           <p className="page-subtitle">Who has paid for {month ? monthLabel(month) : "the month"}.</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">

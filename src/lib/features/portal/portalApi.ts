@@ -86,6 +86,34 @@ export type MaintenanceCredits = {
   total: number;
 };
 
+/** A row of GET /v1/vendor/:societyId. */
+export type Vendor = {
+  id: number;
+  serviceType: string;
+  vendorType: "COMPANY" | "INDIVIDUAL";
+  name: string;
+  address: string | null;
+  email: string | null;
+  phone: string | null;
+  paymentFrequency: "MONTHLY" | "QUARTERLY" | "YEARLY";
+  paymentAmount: string;
+  startDate: string | null;
+  endDate: string | null;
+  isActive: boolean;
+};
+
+/** A payment to a vendor (debit entry), GET /v1/vendor/payments. */
+export type DebitEntry = {
+  id: number;
+  vendorId: number;
+  amount: string;
+  paymentDate: string;
+  period: string | null;
+  paymentMode: string | null;
+  reference: string | null;
+  note: string | null;
+};
+
 export type SetupSocietyPayload = {
   subscriptionId: number;
   name: string;
@@ -215,7 +243,7 @@ const HOUSEHOLD_TAGS = [
 
 export const portalApi = createApi({
   reducerPath: "portalApi",
-  tagTypes: ["Dashboard", "ResourceList", "Maintenance"],
+  tagTypes: ["Dashboard", "ResourceList", "Maintenance", "Debit"],
   baseQuery,
   endpoints: (builder) => ({
     getOnboardingStatus: builder.query<OnboardingStatus, number>({
@@ -476,6 +504,27 @@ export const portalApi = createApi({
       }),
       invalidatesTags: ["Maintenance"],
     }),
+    getDebitEntries: builder.query<DebitEntry[], number>({
+      query: (societyId) => `/v1/vendor/payments?societyId=${societyId}`,
+      transformResponse: (response: { data: DebitEntry[] }) => response.data,
+      providesTags: ["Debit"],
+    }),
+    saveDebitEntry: builder.mutation<DebitEntry, Omit<DebitEntry, "id"> & { societyId: number }>({
+      query: ({ societyId, ...body }) => ({
+        url: `/v1/vendor/payments?societyId=${societyId}`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (response: { data: DebitEntry }) => response.data,
+      invalidatesTags: ["Debit"],
+    }),
+    deleteDebitEntry: builder.mutation<unknown, { societyId: number; id: number }>({
+      query: ({ societyId, id }) => ({
+        url: `/v1/vendor/payments/${id}?societyId=${societyId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Debit"],
+    }),
     exportFile: builder.mutation<Blob, string>({
       query: (url) => ({
         url,
@@ -507,4 +556,7 @@ export const {
   useSetFeeHeadsMutation,
   useSaveMaintenanceEntryMutation,
   useDeleteMaintenanceEntryMutation,
+  useGetDebitEntriesQuery,
+  useSaveDebitEntryMutation,
+  useDeleteDebitEntryMutation,
 } = portalApi;

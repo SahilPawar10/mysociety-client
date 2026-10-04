@@ -558,7 +558,18 @@ export default function ResourceCrudClient({ resource }: Props) {
           onChange={(e) => setField(field.name, e.target.value)}
           required={field.required}
           className="input"
+          list={field.suggestions ? `s-${field.name}` : undefined}
         />
+        {field.suggestions ? (
+          // Built-in suggestions plus whatever this list already uses (e.g. a service type the admin added).
+          <datalist id={`s-${field.name}`}>
+            {[...new Set([...field.suggestions, ...(data ?? []).map((r) => String(r[field.name] ?? ""))])]
+              .filter(Boolean)
+              .map((s) => (
+                <option key={s} value={s} />
+              ))}
+          </datalist>
+        ) : null}
       </div>
     );
   };

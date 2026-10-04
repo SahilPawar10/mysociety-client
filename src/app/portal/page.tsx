@@ -32,7 +32,7 @@ export default function PortalDashboardPage() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2 max-w-3xl">
           {[
-            ["/portal/maintenance-bill", "Maintenance bills", "See what's due and what's paid."],
+            ["/portal/maintenance-bill", "Monthly maintenance", "See what's due and what's paid."],
             ["/portal/complaint", "Raise a complaint", "Report an issue to your society office."],
           ].map(([href, title, text]) => (
             <Link key={href} href={href} className="card p-5 transition hover:border-brand-300 hover:shadow-md">

@@ -17,6 +17,8 @@ export type ResourceField = {
   type: FieldType;
   required?: boolean;
   options?: FieldOption[];
+  /** Text field: values offered while typing; anything else can still be typed. */
+  suggestions?: string[];
 };
 
 export type TableColumn = {
@@ -225,11 +227,75 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
   },
   {
     key: "maintenance-bill",
-    label: "Maintenance",
+    label: "Monthly Maintenance",
     path: "/portal/maintenance-bill",
     description: "Monthly maintenance collection per unit (own page: app/portal/maintenance-bill).",
     apiRoute: "/v1/maintenance-bill",
     fields: [],
+  },
+  {
+    key: "essential-service",
+    label: "Essential Services",
+    path: "/portal/essential-service",
+    description: "Payments to vendors (own page: app/portal/essential-service).",
+    fields: [],
+  },
+  {
+    key: "vendor",
+    label: "Vendors",
+    path: "/portal/vendor",
+    description:
+      "Who provides the society's essential services. Changing a vendor? Set an end date and untick Active on the old one, then add the new one: old payments stay with the old vendor.",
+    apiRoute: "/v1/vendor",
+    columns: [
+      { name: "serviceType", label: "Service" },
+      { name: "name", label: "Name" },
+      { name: "vendorType", label: "Type" },
+      { name: "phone", label: "Mobile" },
+      { name: "paymentFrequency", label: "Pays" },
+      { name: "paymentAmount", label: "Amount" },
+      { name: "period", label: "Period", value: (r) => `${r.startDate ?? "—"} → ${r.endDate ?? "now"}` },
+      { name: "isActive", label: "Active" },
+    ],
+    fields: [
+      { name: "societyId", label: "Society", type: "number", required: true },
+      {
+        name: "serviceType",
+        label: "Service type (Water, Security…)",
+        type: "text",
+        required: true,
+        suggestions: ["Water", "Security", "Housekeeping", "Electricity", "Lift", "Garden", "Pest Control", "Garbage Collection"],
+      },
+      {
+        name: "vendorType",
+        label: "Vendor type",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Company", value: "COMPANY" },
+          { label: "Single person", value: "INDIVIDUAL" },
+        ],
+      },
+      { name: "name", label: "Name", type: "text", required: true },
+      { name: "phone", label: "Contact number", type: "text" },
+      { name: "email", label: "Contact email", type: "text" },
+      { name: "address", label: "Address", type: "textarea" },
+      {
+        name: "paymentFrequency",
+        label: "Payment type",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Monthly", value: "MONTHLY" },
+          { label: "Quarterly", value: "QUARTERLY" },
+          { label: "Yearly", value: "YEARLY" },
+        ],
+      },
+      { name: "paymentAmount", label: "Payment amount", type: "number", required: true },
+      { name: "startDate", label: "Start date", type: "date" },
+      { name: "endDate", label: "End date", type: "date" },
+      { name: "isActive", label: "Active", type: "checkbox" },
+    ],
   },
   {
     key: "society-expense",

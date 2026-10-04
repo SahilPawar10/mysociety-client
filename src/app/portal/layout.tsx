@@ -13,7 +13,8 @@ const MEMBER_RESOURCES = ["complaint", "maintenance-bill", "society-expense", "s
 
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "Society", keys: ["society", "subscription", "wing", "unit", "unit-membership", "family-member", "staff", "user"] },
-  { title: "Finance", keys: ["maintenance-bill", "society-expense"] },
+  { title: "Maintenance", keys: ["maintenance-bill", "essential-service", "vendor"] },
+  { title: "Finance", keys: ["society-expense"] },
   { title: "Help desk", keys: ["complaint"] },
 ];
 
@@ -87,6 +88,11 @@ export default function PortalLayout({
   const isActive = (href: string) =>
     href === "/portal" ? pathname === href : pathname.startsWith(href);
   const displayName = user?.name || user?.email || user?.phone || "User";
+  // Residents only get their menu's pages; units, wings, setup, vendors… are admin-only (the API refuses them too).
+  const allowedPage =
+    role === "SUPER_ADMIN" ||
+    role === "SOCIETY_ADMIN" ||
+    sections.some((s) => s.items.some((item) => isActive(item.href)));
 
   return (
     <div className="min-h-screen md:flex">
@@ -163,7 +169,15 @@ export default function PortalLayout({
       </header>
 
       <main className="flex-1 min-w-0 overflow-x-hidden">
-        <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8">{children}</div>
+        <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8">
+          {allowedPage ? (
+            children
+          ) : (
+            <div className="card p-10 text-center">
+              <p className="section-title">Only society admins can open this page.</p>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
