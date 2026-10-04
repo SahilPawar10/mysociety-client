@@ -327,7 +327,8 @@ export default function ResourceCrudClient({ resource }: Props) {
 
     setFeedback("");
     setEditingId(null);
-    setFormState({});
+    // New records start active; an unticked box would save them as inactive.
+    setFormState(visibleFields.some((f) => f.name === "isActive") ? { isActive: true } : {});
     setIsFormOpen(true);
   };
 

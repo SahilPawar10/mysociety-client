@@ -15,9 +15,12 @@ export type OnboardingStatus = {
   activatedUsers: number;
   familyMembers: number;
   familyMembersWithLogin: number;
+  staff: number;
   steps: {
+    wingsCreated: boolean;
     structureImported: boolean;
     residentsImported: boolean;
+    staffAdded: boolean;
     loginsActivated: boolean;
   };
   nextStep: string | null;
@@ -29,7 +32,6 @@ export type ImportResult = {
   skipped: { rowNumber: number; reason: string }[];
   // unit import
   insertedCount?: number;
-  wingsCreated?: string[];
   // resident import
   membershipsCreated?: number;
   usersCreated?: number;
@@ -41,6 +43,47 @@ export type ImportArg = {
   societyId: number;
   file: File;
   dryRun: boolean;
+};
+
+/** A fee on the maintenance setup form or a month's list. */
+export type FeeHead = { name: string; amount: string };
+export type MaintenanceItem = FeeHead & { id?: number; paid: boolean };
+export type MaintenanceStatus = "PAID" | "PARTIAL" | "UNPAID";
+
+/** GET /v1/maintenance-bill?month=YYYY-MM: every unit with its status for the month. */
+export type MaintenanceSheet = {
+  month: string;
+  heads: FeeHead[];
+  society: {
+    name: string;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    pincode: string | null;
+    rules: string | null;
+  };
+  totals: { units: number; paid: number; partial: number; unpaid: number; due: number; collected: number };
+  units: {
+    unitId: number;
+    wingName: string;
+    unitNumber: string;
+    floor: string;
+    ownerName: string | null;
+    tenantName: string | null;
+    billId: number | null;
+    billDate: string | null;
+    amount: number;
+    paidAmount: number;
+    status: MaintenanceStatus;
+    items: MaintenanceItem[];
+  }[];
+};
+
+export type MaintenanceCredits = {
+  from: string;
+  to: string;
+  credits: { category: string; amount: number }[];
+  total: number;
 };
 
 export type SetupSocietyPayload = {
@@ -172,7 +215,7 @@ const HOUSEHOLD_TAGS = [
 
 export const portalApi = createApi({
   reducerPath: "portalApi",
-  tagTypes: ["Dashboard", "ResourceList"],
+  tagTypes: ["Dashboard", "ResourceList", "Maintenance"],
   baseQuery,
   endpoints: (builder) => ({
     getOnboardingStatus: builder.query<OnboardingStatus, number>({
@@ -387,6 +430,52 @@ export const portalApi = createApi({
       invalidatesTags: (_result, _error, arg) =>
         arg.dryRun ? [] : ["ResourceList", "Dashboard"],
     }),
+    getMaintenanceSheet: builder.query<MaintenanceSheet, { societyId: number; month: string }>({
+      query: ({ societyId, month }) => `/v1/maintenance-bill?societyId=${societyId}&month=${month}`,
+      transformResponse: (response: { data: MaintenanceSheet }) => response.data,
+      providesTags: ["Maintenance"],
+    }),
+    getFeeHeads: builder.query<FeeHead[], number>({
+      query: (societyId) => `/v1/maintenance-bill/heads?societyId=${societyId}`,
+      transformResponse: (response: { data: FeeHead[] }) => response.data,
+      providesTags: ["Maintenance"],
+    }),
+    getMaintenanceCredits: builder.query<MaintenanceCredits, { societyId: number; from: string; to: string }>({
+      query: ({ societyId, from, to }) =>
+        `/v1/maintenance-bill/credits?societyId=${societyId}&from=${from}&to=${to}`,
+      transformResponse: (response: { data: MaintenanceCredits }) => response.data,
+      providesTags: ["Maintenance"],
+    }),
+    /** Saves the setup form (with receipt rules), or (with month) that month's own fee list; [] for a month resets it. */
+    setFeeHeads: builder.mutation<
+      unknown,
+      { societyId: number; month?: string; heads: FeeHead[]; rules?: string }
+    >({
+      query: ({ societyId, month, heads, rules }) => ({
+        url: `/v1/maintenance-bill/${month ? `month/${month}/heads` : "heads"}?societyId=${societyId}`,
+        method: "PUT",
+        body: { heads, rules },
+      }),
+      invalidatesTags: ["Maintenance"],
+    }),
+    saveMaintenanceEntry: builder.mutation<
+      unknown,
+      { societyId: number; unitId: number; month: string; items: MaintenanceItem[] }
+    >({
+      query: ({ societyId, ...body }) => ({
+        url: `/v1/maintenance-bill?societyId=${societyId}`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Maintenance"],
+    }),
+    deleteMaintenanceEntry: builder.mutation<unknown, { societyId: number; id: number }>({
+      query: ({ societyId, id }) => ({
+        url: `/v1/maintenance-bill/${id}?societyId=${societyId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Maintenance"],
+    }),
     exportFile: builder.mutation<Blob, string>({
       query: (url) => ({
         url,
@@ -412,4 +501,10 @@ export const {
   useReplaceHouseholdMutation,
   useImportFileMutation,
   useExportFileMutation,
+  useGetMaintenanceSheetQuery,
+  useGetFeeHeadsQuery,
+  useGetMaintenanceCreditsQuery,
+  useSetFeeHeadsMutation,
+  useSaveMaintenanceEntryMutation,
+  useDeleteMaintenanceEntryMutation,
 } = portalApi;

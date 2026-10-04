@@ -113,9 +113,16 @@ function OnboardingStatusCard({ societyId }: { societyId: number }) {
 
   const steps = [
     {
+      done: data.steps.wingsCreated,
+      title: "Create wings",
+      detail: `${data.wings} wings`,
+      href: "/portal/wing",
+      action: "Open Wings → Add wing",
+    },
+    {
       done: data.steps.structureImported,
-      title: "Import wings & units",
-      detail: `${data.wings} wings · ${data.units} units`,
+      title: "Add units",
+      detail: `${data.units} units`,
       href: "/portal/unit",
       action: "Open Units → Import Excel",
     },
@@ -125,6 +132,13 @@ function OnboardingStatusCard({ societyId }: { societyId: number }) {
       detail: `${data.occupiedUnits} occupied · ${data.vacantUnits} vacant · ${data.familyMembers} people`,
       href: "/portal/unit-membership",
       action: "Open Unit Memberships → Import Excel",
+    },
+    {
+      done: data.steps.staffAdded,
+      title: "Add committee & staff",
+      detail: `${data.staff} added · President, Secretary, Treasurer…`,
+      href: "/portal/staff",
+      action: "Open Committee & Staff → Add",
     },
     {
       done: data.steps.loginsActivated,

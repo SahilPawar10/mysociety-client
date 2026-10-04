@@ -122,7 +122,7 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
         type: "text",
         required: true,
       },
-      { name: "floorNumber", label: "Floor", type: "number", required: true },
+      { name: "floorNumber", label: "Floor (1, Ground, Parking…)", type: "text", required: true },
       { name: "parkingSlots", label: "Parking Slots", type: "text" },
       { name: "areaSqft", label: "Area (Sqft)", type: "number" },
     ],
@@ -225,28 +225,11 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
   },
   {
     key: "maintenance-bill",
-    label: "Maintenance Bills",
+    label: "Maintenance",
     path: "/portal/maintenance-bill",
-    description: "Manage maintenance bills.",
+    description: "Monthly maintenance collection per unit (own page: app/portal/maintenance-bill).",
     apiRoute: "/v1/maintenance-bill",
-    fields: [
-      { name: "societyId", label: "Society", type: "number", required: true },
-      { name: "unitId", label: "Unit", type: "number", required: true },
-      { name: "month", label: "Month (YYYY-MM)", type: "text", required: true },
-      { name: "amount", label: "Amount", type: "number", required: true },
-      { name: "dueDate", label: "Due Date", type: "date", required: true },
-      {
-        name: "status",
-        label: "Status",
-        type: "select",
-        required: true,
-        options: [
-          { label: "GENERATED", value: "GENERATED" },
-          { label: "PARTIAL", value: "PARTIAL" },
-          { label: "PAID", value: "PAID" },
-        ],
-      },
-    ],
+    fields: [],
   },
   {
     key: "society-expense",
@@ -266,6 +249,27 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
         type: "date",
         required: true,
       },
+    ],
+  },
+  {
+    key: "staff",
+    label: "Committee & Staff",
+    path: "/portal/staff",
+    description: "Pick a person of this society and give them any title: President, Secretary, Treasurer…",
+    apiRoute: "/v1/staff",
+    // Name/mobile/email are copied from the picked person when saved.
+    columns: [
+      { name: "name", label: "Name" },
+      { name: "designation", label: "Designation" },
+      { name: "phone", label: "Mobile", value: (r) => String(r.phone ?? "—") },
+      { name: "email", label: "Email", value: (r) => String(r.email ?? "—") },
+      { name: "isActive", label: "Active" },
+    ],
+    fields: [
+      { name: "societyId", label: "Society", type: "number", required: true },
+      { name: "userId", label: "Person", type: "number", required: true },
+      { name: "designation", label: "Designation (President, Secretary…)", type: "text", required: true },
+      { name: "isActive", label: "Active", type: "checkbox" },
     ],
   },
   {

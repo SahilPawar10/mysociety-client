@@ -76,7 +76,6 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
     kind === "unit"
       ? [
           [r.insertedCount ?? 0, "units"],
-          [r.wingsCreated?.length ?? 0, "new wings"],
           [r.skipped.length, "skipped"],
         ]
       : [
@@ -146,7 +145,6 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
               {result
                 ? "Import finished."
                 : "Preview only: nothing is saved until you click Import."}
-              {shown.wingsCreated?.length ? ` New wings: ${shown.wingsCreated.join(", ")}.` : ""}
             </p>
 
             <div className="grid grid-cols-3 gap-3">

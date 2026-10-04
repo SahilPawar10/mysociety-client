@@ -9,10 +9,10 @@ import { useAppSelector } from "@/lib/hooks";
 import { RESOURCE_CONFIGS } from "@/lib/features/portal/resourceConfig";
 
 // What a MEMBER may open; the backend refuses the rest (users, memberships, family members…).
-const MEMBER_RESOURCES = ["complaint", "maintenance-bill", "society-expense"];
+const MEMBER_RESOURCES = ["complaint", "maintenance-bill", "society-expense", "staff"];
 
 const GROUPS: { title: string; keys: string[] }[] = [
-  { title: "Society", keys: ["society", "subscription", "wing", "unit", "unit-membership", "family-member", "user"] },
+  { title: "Society", keys: ["society", "subscription", "wing", "unit", "unit-membership", "family-member", "staff", "user"] },
   { title: "Finance", keys: ["maintenance-bill", "society-expense"] },
   { title: "Help desk", keys: ["complaint"] },
 ];

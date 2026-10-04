@@ -244,14 +244,14 @@ export default function UnitHomesPage() {
     setMessage("");
 
     const wingIdNumber = Number(newUnitWingId);
-    const floorNumber = Number(newUnitFloorNumber);
+    const floorNumber = newUnitFloorNumber.trim();
     if (
       !effectiveSocietyId ||
       !Number.isFinite(wingIdNumber) ||
-      !Number.isFinite(floorNumber) ||
+      !floorNumber ||
       !newUnitNumber.trim()
     ) {
-      setMessage("Select wing, floor number and unit number.");
+      setMessage("Select wing, floor and unit number.");
       return;
     }
 
@@ -309,14 +309,14 @@ export default function UnitHomesPage() {
     }
 
     const wingIdNumber = Number(editUnitWingId);
-    const floorNumber = Number(editUnitFloorNumber);
+    const floorNumber = editUnitFloorNumber.trim();
     if (
       !effectiveSocietyId ||
       !Number.isFinite(wingIdNumber) ||
-      !Number.isFinite(floorNumber) ||
+      !floorNumber ||
       !editUnitNumber.trim()
     ) {
-      setMessage("Select wing, floor number and unit number.");
+      setMessage("Select wing, floor and unit number.");
       return;
     }
 
@@ -401,7 +401,7 @@ export default function UnitHomesPage() {
               </select>
             </div>
 
-            {/* Import creates the wings too, so it must not wait for a wing to be selected. */}
+            {/* Import covers every wing, so it does not wait for a wing to be selected. */}
             <div className="card p-4 flex items-end">
               <ImportExportActions kind="unit" societyId={effectiveSocietyId} />
             </div>
@@ -410,7 +410,7 @@ export default function UnitHomesPage() {
       </div>
       {effectiveSocietyId && wings.length === 0 ? (
         <p className="alert-warn">
-          No wings yet. Use Import Excel to add all units at once (wings are created automatically).
+          No wings yet. Create wings on the Wings page first, then add or import units here.
         </p>
       ) : null}
       {selectedWingId ? (
@@ -599,7 +599,8 @@ export default function UnitHomesPage() {
                           Floor
                         </label>
                         <input
-                          type="number"
+                          type="text"
+                          placeholder="e.g. 1, Ground, Parking"
                           value={editUnitFloorNumber}
                           onChange={(e) =>
                             setEditUnitFloorNumber(e.target.value)
@@ -702,7 +703,8 @@ export default function UnitHomesPage() {
                           Floor
                         </label>
                         <input
-                          type="number"
+                          type="text"
+                          placeholder="e.g. 1, Ground, Parking"
                           value={newUnitFloorNumber}
                           onChange={(e) =>
                             setNewUnitFloorNumber(e.target.value)
