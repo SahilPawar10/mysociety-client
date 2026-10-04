@@ -39,7 +39,7 @@ export type ImportResult = {
 };
 
 export type ImportArg = {
-  path: "/v1/unit/import" | "/v1/unit-membership/import";
+  path: "/v1/unit/import" | "/v1/unit-membership/import" | "/v1/asset/import";
   societyId: number;
   file: File;
   dryRun: boolean;
@@ -102,10 +102,11 @@ export type Vendor = {
   isActive: boolean;
 };
 
-/** A payment to a vendor (debit entry), GET /v1/vendor/payments. */
+/** A debit entry (vendor payment or asset purchase), GET /v1/vendor/payments. */
 export type DebitEntry = {
   id: number;
-  vendorId: number;
+  vendorId: number | null;
+  assetId?: number | null;
   amount: string;
   paymentDate: string;
   period: string | null;
@@ -325,10 +326,14 @@ export const portalApi = createApi({
       transformResponse: (response: { data?: ResourceRecord }) =>
         response.data ?? {},
       invalidatesTags: (_result, _error, arg) => {
-        const tags: Array<{ type: "ResourceList"; id: string } | "Dashboard"> =
+        const tags: Array<{ type: "ResourceList"; id: string } | "Dashboard" | "Debit"> =
           [{ type: "ResourceList", id: arg.resource }, "Dashboard"];
         if (arg.resource === "family-member") {
           tags.push({ type: "ResourceList", id: "unit-membership-history" });
+        }
+        // An asset bought with "Record as debit" adds a debit entry.
+        if (arg.resource === "asset") {
+          tags.push("Debit");
         }
         return tags;
       },

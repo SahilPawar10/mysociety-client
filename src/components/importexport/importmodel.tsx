@@ -22,6 +22,13 @@ const IMPORTS = {
     templateFile: "resident-import-template.xlsx",
     help: "One row per person. relation SELF (or empty) = owner/tenant, who needs a phone or email to log in. Wife, Son… = their family.",
   },
+  asset: {
+    title: "Import Assets",
+    path: "/v1/asset/import",
+    template: "/v1/asset/import/template",
+    templateFile: "asset-import-template.xlsx",
+    help: "Assets the society already owns, one row each. Only name is required. These are not added to debits.",
+  },
 } as const;
 
 type Props = {
@@ -73,9 +80,9 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
     (r.insertedCount ?? 0) + (r.membershipsCreated ?? 0) + (r.familyMembersCreated ?? 0);
 
   const summary = (r: ImportResult) =>
-    kind === "unit"
+    kind !== "unit-membership"
       ? [
-          [r.insertedCount ?? 0, "units"],
+          [r.insertedCount ?? 0, kind === "unit" ? "units" : "assets"],
           [r.skipped.length, "skipped"],
         ]
       : [

@@ -19,6 +19,8 @@ export type ResourceField = {
   options?: FieldOption[];
   /** Text field: values offered while typing; anything else can still be typed. */
   suggestions?: string[];
+  /** Shown only on the "new" form (e.g. booking a purchase as a debit). */
+  createOnly?: boolean;
 };
 
 export type TableColumn = {
@@ -315,6 +317,48 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
         type: "date",
         required: true,
       },
+    ],
+  },
+  {
+    key: "asset",
+    label: "Assets",
+    path: "/portal/asset",
+    description:
+      "Everything the society owns. Import old assets from Excel (not added to debits); for a new purchase tick \"Record as debit\".",
+    apiRoute: "/v1/asset",
+    columns: [
+      { name: "name", label: "Asset" },
+      { name: "category", label: "Category" },
+      { name: "quantity", label: "Qty" },
+      { name: "location", label: "Location" },
+      { name: "purchaseDate", label: "Purchased" },
+      { name: "purchaseCost", label: "Cost" },
+      { name: "isActive", label: "In use" },
+    ],
+    fields: [
+      { name: "societyId", label: "Society", type: "number", required: true },
+      { name: "name", label: "Asset name", type: "text", required: true },
+      {
+        name: "category",
+        label: "Category",
+        type: "text",
+        suggestions: ["Electrical", "Furniture", "Security", "Plumbing", "Gym", "Garden", "Electronics"],
+      },
+      { name: "quantity", label: "Quantity", type: "number" },
+      { name: "location", label: "Location (Clubhouse, Basement…)", type: "text" },
+      { name: "purchaseDate", label: "Purchase date", type: "date" },
+      { name: "purchaseCost", label: "Purchase cost", type: "number" },
+      { name: "note", label: "Note", type: "textarea" },
+      { name: "isActive", label: "In use (untick when scrapped)", type: "checkbox" },
+      { name: "recordDebit", label: "Record as debit (new purchase)", type: "checkbox", createOnly: true },
+      {
+        name: "paymentMode",
+        label: "Payment mode",
+        type: "select",
+        createOnly: true,
+        options: ["Cash", "Cheque", "UPI", "Bank transfer"].map((m) => ({ label: m, value: m })),
+      },
+      { name: "reference", label: "Cheque / transaction no.", type: "text", createOnly: true },
     ],
   },
   {

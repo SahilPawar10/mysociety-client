@@ -1,7 +1,7 @@
 import { useState } from "react";
 import ImportModal from "./importmodel";
 
-export type ImportKind = "unit" | "unit-membership";
+export type ImportKind = "unit" | "unit-membership" | "asset";
 
 type Props = {
   kind: ImportKind;

@@ -202,6 +202,9 @@ export default function ResourceCrudClient({ resource }: Props) {
     });
   }, [config, isSocietyAdmin, needsSocietySelector]);
 
+  const formFields =
+    editingId !== null ? visibleFields.filter((field) => !field.createOnly) : visibleFields;
+
   const columnAndFieldNames = [
     ...visibleFields.map((field) => field.name),
     ...(config?.columns ?? []).map((column) => column.name),
@@ -358,7 +361,7 @@ export default function ResourceCrudClient({ resource }: Props) {
     setFeedback("");
 
     const payload: Record<string, unknown> = {};
-    visibleFields.forEach((field) => {
+    formFields.forEach((field) => {
       const current = formState[field.name];
       payload[field.name] = toPayloadValue(current ?? "", field.type);
     });
@@ -597,6 +600,9 @@ export default function ResourceCrudClient({ resource }: Props) {
             {resource === "unit-membership" && effectiveSocietyId ? (
               <ImportExportActions kind="unit-membership" societyId={effectiveSocietyId} />
             ) : null}
+            {resource === "asset" && canEdit && effectiveSocietyId ? (
+              <ImportExportActions kind="asset" societyId={effectiveSocietyId} />
+            ) : null}
             {resource === "society" ? (
               isSuperAdmin ? (
                 <Link href="/portal/onboard-society" className="btn-primary">
@@ -742,7 +748,7 @@ export default function ResourceCrudClient({ resource }: Props) {
               </button>
             </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-2">{visibleFields.map(renderField)}</div>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">{formFields.map(renderField)}</div>
 
             <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-5">
               <button type="button" onClick={closeForm} className="btn-secondary">

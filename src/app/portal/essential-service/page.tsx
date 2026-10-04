@@ -36,7 +36,9 @@ export default function EssentialServicesPage() {
   const vendorsQuery = useGetResourceListQuery({ resource: "vendor", societyId }, { skip: !societyId });
   const vendors = (vendorsQuery.data ?? []) as unknown as Vendor[];
   const active = vendors.filter((v) => v.isActive);
-  const { data: entries = [] } = useGetDebitEntriesQuery(societyId, { skip: !societyId });
+  const { data: allEntries = [] } = useGetDebitEntriesQuery(societyId, { skip: !societyId });
+  // Asset purchases are debits too, but not vendor payments.
+  const entries = allEntries.filter((e) => e.vendorId);
 
   const month = today().slice(0, 7);
   const paidThisMonth = entries
