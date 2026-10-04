@@ -303,7 +303,7 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
     key: "society-expense",
     label: "Society Expenses",
     path: "/portal/society-expense",
-    description: "Manage society expenses.",
+    description: "No page of its own: added and listed in the Debits tab of /portal/accounts.",
     apiRoute: "/v1/society-expense",
     fields: [
       { name: "societyId", label: "Society", type: "number", required: true },
@@ -318,6 +318,13 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
         required: true,
       },
     ],
+  },
+  {
+    key: "accounts",
+    label: "Credits & Debits",
+    path: "/portal/accounts",
+    description: "Every credit and debit by category, and the yearly balance sheet (own page: app/portal/accounts).",
+    fields: [],
   },
   {
     key: "asset",

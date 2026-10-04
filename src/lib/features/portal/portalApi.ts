@@ -115,6 +115,40 @@ export type DebitEntry = {
   note: string | null;
 };
 
+export type LedgerSource = "MAINTENANCE" | "OTHER_INCOME" | "EXPENSE" | "VENDOR_PAYMENT" | "ASSET_PURCHASE";
+
+/** A line of GET /v1/ledger/credits or /debits; id is null for maintenance (one line per flat + fee). */
+export type LedgerEntry = {
+  source: LedgerSource;
+  id: number | null;
+  category: string;
+  title: string;
+  amount: number;
+  date: string;
+  // Credits: the flat ("A - 101") and its owner when the entry was saved.
+  unit?: string | null;
+  ownerName?: string | null;
+};
+
+type LedgerGroups = {
+  groups: { source: LedgerSource; category: string; amount: number; count: number }[];
+  total: number;
+};
+
+/** GET /v1/ledger/summary: the balance sheet. */
+export type LedgerSummary = { from: string; to: string; credits: LedgerGroups; debits: LedgerGroups; net: number };
+
+type LedgerArg = { societyId: number; from: string; to: string };
+
+// The ledger reads maintenance, vendor payments, expenses and assets: any change there refreshes it.
+const LEDGER_TAGS = [
+  "Ledger" as const,
+  "Debit" as const,
+  "Maintenance" as const,
+  { type: "ResourceList" as const, id: "society-expense" },
+  { type: "ResourceList" as const, id: "asset" },
+];
+
 export type SetupSocietyPayload = {
   subscriptionId: number;
   name: string;
@@ -244,7 +278,7 @@ const HOUSEHOLD_TAGS = [
 
 export const portalApi = createApi({
   reducerPath: "portalApi",
-  tagTypes: ["Dashboard", "ResourceList", "Maintenance", "Debit"],
+  tagTypes: ["Dashboard", "ResourceList", "Maintenance", "Debit", "Ledger"],
   baseQuery,
   endpoints: (builder) => ({
     getOnboardingStatus: builder.query<OnboardingStatus, number>({
@@ -530,6 +564,37 @@ export const portalApi = createApi({
       }),
       invalidatesTags: ["Debit"],
     }),
+    getLedger: builder.query<LedgerEntry[], LedgerArg & { side: "credits" | "debits" }>({
+      query: ({ societyId, side, from, to }) =>
+        `/v1/ledger/${side}?societyId=${societyId}&from=${from}&to=${to}`,
+      transformResponse: (response: { data: LedgerEntry[] }) => response.data,
+      providesTags: LEDGER_TAGS,
+    }),
+    getLedgerSummary: builder.query<LedgerSummary, LedgerArg>({
+      query: ({ societyId, from, to }) => `/v1/ledger/summary?societyId=${societyId}&from=${from}&to=${to}`,
+      transformResponse: (response: { data: LedgerSummary }) => response.data,
+      providesTags: LEDGER_TAGS,
+    }),
+    getLedgerCategories: builder.query<{ credits: string[]; debits: string[] }, number>({
+      query: (societyId) => `/v1/ledger/categories?societyId=${societyId}`,
+      transformResponse: (response: { data: { credits: string[]; debits: string[] } }) => response.data,
+      providesTags: LEDGER_TAGS,
+    }),
+    saveCreditEntry: builder.mutation<unknown, { societyId: number; [field: string]: string | number }>({
+      query: ({ societyId, ...body }) => ({
+        url: `/v1/ledger/credits?societyId=${societyId}`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Ledger"],
+    }),
+    deleteCreditEntry: builder.mutation<unknown, { societyId: number; id: number }>({
+      query: ({ societyId, id }) => ({
+        url: `/v1/ledger/credits/${id}?societyId=${societyId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Ledger"],
+    }),
     exportFile: builder.mutation<Blob, string>({
       query: (url) => ({
         url,
@@ -564,4 +629,9 @@ export const {
   useGetDebitEntriesQuery,
   useSaveDebitEntryMutation,
   useDeleteDebitEntryMutation,
+  useGetLedgerQuery,
+  useGetLedgerSummaryQuery,
+  useGetLedgerCategoriesQuery,
+  useSaveCreditEntryMutation,
+  useDeleteCreditEntryMutation,
 } = portalApi;
