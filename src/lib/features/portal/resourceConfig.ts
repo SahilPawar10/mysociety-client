@@ -428,7 +428,7 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
     fields: [
       { name: "societyId", label: "Society", type: "number", required: true },
       { name: "name", label: "Full Name", type: "text", required: true },
-      // The person logs in with this phone (OTP) or email; one of them is required.
+      // Login is by email (password or Google); the phone is contact info. One of them is required.
       { name: "phone", label: "Mobile", type: "text" },
       { name: "email", label: "Email", type: "text" },
       {

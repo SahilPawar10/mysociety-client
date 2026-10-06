@@ -111,8 +111,8 @@ export default function OnboardSocietyPage() {
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-    if (!form.adminPhone.trim() && !form.adminEmail.trim()) {
-      setError(t("Admin needs a phone or an email: they log in with it."));
+    if (!form.adminEmail.trim()) {
+      setError(t("Admin needs an email: they log in with it."));
       return;
     }
 
@@ -167,7 +167,7 @@ export default function OnboardSocietyPage() {
           <span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-50 text-lg text-emerald-600">✓</span>
           <h2 className="page-title">{t("Society onboarded")}</h2>
           <p>
-            {t("{name} is ready. Its admin can now sign in with the phone/email you entered, then import units and residents from the dashboard.", { name: done.name })}
+            {t("{name} is ready. Its admin can now sign in with the email you entered, then import units and residents from the dashboard.", { name: done.name })}
           </p>
           <div className="flex gap-3 pt-2">
             <Link href="/portal" className="btn-primary">
@@ -239,7 +239,7 @@ export default function OnboardSocietyPage() {
           </Field>
         </Step>
 
-        <Step n={3} title={t("Society admin")} hint={t("Signs in with this mobile (OTP) or email.")}>
+        <Step n={3} title={t("Society admin")} hint={t("Signs in with this email.")}>
           <Field label={t("Full name")} wide>
             <input value={form.adminName} onChange={set("adminName")} required className={inputClass} />
           </Field>
@@ -247,7 +247,7 @@ export default function OnboardSocietyPage() {
             <input type="tel" value={form.adminPhone} onChange={set("adminPhone")} placeholder="98765 43210" className={inputClass} />
           </Field>
           <Field label={t("Email")}>
-            <input type="email" value={form.adminEmail} onChange={set("adminEmail")} placeholder="admin@example.com" className={inputClass} />
+            <input type="email" value={form.adminEmail} onChange={set("adminEmail")} placeholder="admin@example.com" required className={inputClass} />
           </Field>
         </Step>
 

@@ -152,7 +152,7 @@ function OnboardingStatusCard({ societyId }: { societyId: number }) {
       title: "Residents sign in",
       detail: t("{signedIn} of {total} people have signed in", { signedIn: data.activatedUsers, total: data.users }),
       href: null,
-      action: "Share the portal link; residents sign in with their registered mobile (OTP).",
+      action: "Share the portal link; residents sign in with their registered email.",
     },
   ];
   const doneCount = steps.filter((s) => s.done).length;

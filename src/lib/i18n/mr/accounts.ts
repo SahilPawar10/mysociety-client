@@ -46,11 +46,11 @@ export const accounts: Record<string, string> = {
   "Deficit for the year:": "वर्षाची तूट:",
 
   // Onboard society
-  "Admin needs a phone or an email: they log in with it.": "ॲडमिनसाठी फोन किंवा ईमेल आवश्यक आहे: त्यानेच लॉगिन करता येते.",
+  "Admin needs an email: they log in with it.": "ॲडमिनसाठी ईमेल आवश्यक आहे: त्यानेच लॉगिन करता येते.",
   "Onboarding failed.": "सोसायटी जोडता आली नाही.",
   "Only SUPER_ADMIN can onboard a society.": "फक्त सुपर ॲडमिन सोसायटी जोडू शकतात.",
   "Society onboarded": "सोसायटी जोडली गेली",
-  "{name} is ready. Its admin can now sign in with the phone/email you entered, then import units and residents from the dashboard.":
+  "{name} is ready. Its admin can now sign in with the email you entered, then import units and residents from the dashboard.":
     "{name} तयार आहे. त्याचे ॲडमिन आता तुम्ही दिलेल्या फोन/ईमेलने लॉगिन करू शकतात आणि डॅशबोर्डवरून युनिट व रहिवासी आयात करू शकतात.",
   "Go to dashboard": "डॅशबोर्डवर जा",
   "Onboard another": "आणखी एक सोसायटी जोडा",
@@ -68,7 +68,7 @@ export const accounts: Record<string, string> = {
   "e.g. Green Valley CHS": "उदा. ग्रीन व्हॅली CHS",
   "Max wings": "जास्तीत जास्त विंग",
   "No limit": "मर्यादा नाही",
-  "Signs in with this mobile (OTP) or email.": "या मोबाईलने (OTP) किंवा ईमेलने लॉगिन करतील.",
+  "Signs in with this email.": "या ईमेलने लॉगिन करतील.",
   "Full name": "पूर्ण नाव",
   "Create society": "सोसायटी तयार करा",
 
@@ -98,8 +98,8 @@ export const accounts: Record<string, string> = {
   "Open Units": "युनिट(खोली) उघडा",
   "Open Unit Memberships": "युनिट (खोली) सदस्यत्व उघडा",
   "Open Committee & Staff": "कमिटी आणि कर्मचारी उघडा",
-  "Share the portal link; residents sign in with their registered mobile (OTP).":
-    "पोर्टलची लिंक शेअर करा; रहिवासी त्यांच्या नोंदणीकृत मोबाईलने (OTP) लॉगिन करतील.",
+  "Share the portal link; residents sign in with their registered email.":
+    "पोर्टलची लिंक शेअर करा; रहिवासी त्यांच्या नोंदणीकृत ईमेलने लॉगिन करतील.",
   "{count} vacant": "{count} रिकामे",
   People: "व्यक्ती",
   "owners, tenants & family": "मालक, भाडेकरू आणि कुटुंबीय",

@@ -18,7 +18,7 @@ const T = {
     demo: "Book a free demo",
     signin: "Sign in",
     demoMessage: "Hi, I would like a demo of MySociety for our society.",
-    trust: ["No manual calculation", "Login with mobile OTP", "Mobile app coming soon"],
+    trust: ["No manual calculation", "Secure email & Google login", "Mobile app coming soon"],
     mock: {
       title: "Maintenance · October",
       collected: "Collected",
@@ -61,7 +61,7 @@ const T = {
     steps: [
       ["Set up your society", "Wings, flats and your own maintenance structure."],
       ["Import your members", "Upload your existing Excel list of owners and tenants — no retyping."],
-      ["Start collecting", "Generate bills, record payments, share receipts. Residents log in with mobile OTP."],
+      ["Start collecting", "Generate bills, record payments, share receipts. Residents log in with their email."],
     ],
     rolesTitle: "One platform, two views",
     roles: [
@@ -80,9 +80,9 @@ const T = {
       ["Can we set maintenance the way our society calculates it?", "Yes. You create your own maintenance heads and amounts, and you can edit them anytime."],
       ["What happens when a security guard or staff member changes?", "Add the new person and mark the old one as left. Their details and salary history stay on record."],
       ["Can we see who hasn't paid maintenance?", "Yes. Paid and pending are shown flat by flat, with totals calculated for you."],
-      ["Is there a mobile app?", "A mobile app is on the way. Meanwhile MySociety works in any phone or computer browser, with mobile OTP login."],
+      ["Is there a mobile app?", "A mobile app is on the way. Meanwhile MySociety works in any phone or computer browser."],
       ["We already have our data in Excel. Can we move it?", "Yes. Flats and members can be imported directly from Excel, so you don't have to type everything again."],
-      ["Is our society's data safe?", "Yes. Sign-in is secured with OTP, every society's data is kept separate, and residents can only see what is meant for them."],
+      ["Is our society's data safe?", "Yes. Sign-in is secure, every society's data is kept separate, and residents can only see what is meant for them."],
     ],
     ctaTitle: "Ready to stop calculating and start managing?",
     ctaSubtitle: "See MySociety with your own society's flow. Free demo, no obligation.",
@@ -97,7 +97,7 @@ const T = {
     demo: "मोफत डेमो बुक करा",
     signin: "लॉगिन करा",
     demoMessage: "नमस्कार, आमच्या सोसायटीसाठी MySociety चा डेमो हवा आहे.",
-    trust: ["हाताने हिशोब नको", "मोबाईल OTP ने लॉगिन", "मोबाईल ॲप लवकरच"],
+    trust: ["हाताने हिशोब नको", "ईमेल व Google ने सुरक्षित लॉगिन", "मोबाईल ॲप लवकरच"],
     mock: {
       title: "मेंटेनन्स · ऑक्टोबर",
       collected: "जमा",
@@ -140,7 +140,7 @@ const T = {
     steps: [
       ["सोसायटी सेट करा", "विंग, फ्लॅट आणि तुमची स्वतःची मेंटेनन्स रचना."],
       ["सदस्य आयात करा", "मालक आणि भाडेकरूंची सध्याची Excel यादी अपलोड करा — पुन्हा टाइप करण्याची गरज नाही."],
-      ["वसुली सुरू करा", "बिल तयार करा, पेमेंट नोंदवा, पावत्या शेअर करा. रहिवासी मोबाईल OTP ने लॉगिन करतात."],
+      ["वसुली सुरू करा", "बिल तयार करा, पेमेंट नोंदवा, पावत्या शेअर करा. रहिवासी त्यांच्या ईमेलने लॉगिन करतात."],
     ],
     rolesTitle: "एक प्लॅटफॉर्म, दोन दृष्टिकोन",
     roles: [
@@ -159,9 +159,9 @@ const T = {
       ["आमची सोसायटी जसा मेंटेनन्स मोजते, तसाच ठरवता येईल का?", "हो. तुम्ही स्वतःचे मेंटेनन्स घटक आणि रक्कम ठरवता, आणि ते कधीही बदलू शकता."],
       ["सिक्युरिटी गार्ड किंवा कर्मचारी बदलला तर काय?", "नवीन व्यक्ती जोडा आणि जुन्याला 'सोडून गेले' म्हणून नोंदवा. त्यांची माहिती आणि पगाराचा इतिहास जपला जातो."],
       ["कोणी मेंटेनन्स भरला नाही ते पाहता येईल का?", "हो. प्रत्येक फ्लॅटनुसार भरलेले आणि बाकी दिसते, एकूण रक्कम आपोआप मोजली जाते."],
-      ["मोबाईल ॲप आहे का?", "मोबाईल ॲप लवकरच येत आहे. तोपर्यंत MySociety कोणत्याही फोन किंवा कॉम्प्युटरच्या ब्राउझरमध्ये मोबाईल OTP लॉगिनसह चालते."],
+      ["मोबाईल ॲप आहे का?", "मोबाईल ॲप लवकरच येत आहे. तोपर्यंत MySociety कोणत्याही फोन किंवा कॉम्प्युटरच्या ब्राउझरमध्ये चालते."],
       ["आमचा डेटा Excel मध्ये आहे. तो आणता येईल का?", "हो. फ्लॅट आणि सदस्य थेट Excel मधून आयात करता येतात, त्यामुळे सर्व पुन्हा टाइप करावे लागत नाही."],
-      ["आमच्या सोसायटीचा डेटा सुरक्षित आहे का?", "हो. लॉगिन OTP ने सुरक्षित आहे, प्रत्येक सोसायटीचा डेटा वेगळा ठेवला जातो आणि रहिवाशांना फक्त त्यांच्यासाठीची माहिती दिसते."],
+      ["आमच्या सोसायटीचा डेटा सुरक्षित आहे का?", "हो. लॉगिन सुरक्षित आहे, प्रत्येक सोसायटीचा डेटा वेगळा ठेवला जातो आणि रहिवाशांना फक्त त्यांच्यासाठीची माहिती दिसते."],
     ],
     ctaTitle: "हिशोब थांबवा, व्यवस्थापन सुरू करा",
     ctaSubtitle: "तुमच्या सोसायटीच्या कामकाजानुसार MySociety पाहा. मोफत डेमो, कोणतेही बंधन नाही.",
