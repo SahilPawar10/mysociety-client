@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 // ponytail: set this before sharing the page; the demo buttons open WhatsApp with this number (country code, no +).
-const WHATSAPP_NUMBER = "919999999999";
+const WHATSAPP_NUMBER = "919764804327";
 
 export type Lang = "en" | "mr";
 
