@@ -11,6 +11,7 @@ import {
   type ResourceRecord,
 } from "@/lib/features/portal/portalApi";
 import { errorMessage } from "@/lib/api";
+import { useT, type TFunction } from "@/lib/i18n";
 
 type Props = { societyId: number; unitId: number };
 
@@ -52,14 +53,14 @@ const plusMonths = (date: string, months: number) => {
 const fullName = (m: ResourceRecord) =>
   [m.firstName, m.middleName, m.lastName].filter(Boolean).join(" ") || String(m.userName ?? "—");
 
-function tenancyStatus(t: Membership) {
-  if (t.expired) {
-    return { label: "Agreement expired", className: "bg-red-50 text-red-700" };
+function tenancyStatus(m: Membership, t: TFunction) {
+  if (m.expired) {
+    return { label: t("Agreement expired"), className: "bg-red-50 text-red-700" };
   }
-  if (t.daysLeft !== null && t.daysLeft !== undefined && t.daysLeft <= 30) {
-    return { label: `Ends in ${t.daysLeft} days`, className: "bg-amber-50 text-amber-700" };
+  if (m.daysLeft !== null && m.daysLeft !== undefined && m.daysLeft <= 30) {
+    return { label: t("Ends in {days} days", { days: m.daysLeft }), className: "bg-amber-50 text-amber-700" };
   }
-  return { label: "Active", className: "bg-brand-50 text-brand-700" };
+  return { label: t("Active"), className: "bg-brand-50 text-brand-700" };
 }
 
 /**
@@ -67,6 +68,7 @@ function tenancyStatus(t: Membership) {
  * add owner/tenant, transfer ownership, renew / end / replace a tenancy, add family, history.
  */
 export default function UnitHouseholdPanel({ societyId, unitId }: Props) {
+  const t = useT();
   const { data, isLoading, error } = useGetUnitMembershipHistoryQuery({ societyId, unitId });
   const [mode, setMode] = useState<Mode>({ kind: "overview" });
   const [notice, setNotice] = useState("");
@@ -75,7 +77,7 @@ export default function UnitHouseholdPanel({ societyId, unitId }: Props) {
     return <div className="h-40 rounded-xl bg-slate-50 animate-pulse" />;
   }
   if (error) {
-    return <p className="alert-error">{errorMessage(error, "Could not load residents.")}</p>;
+    return <p className="alert-error">{errorMessage(error, t("Could not load residents."))}</p>;
   }
 
   const owner = (data?.currentOwner as Membership | null) ?? null;
@@ -108,7 +110,7 @@ export default function UnitHouseholdPanel({ societyId, unitId }: Props) {
     return <History data={data} onBack={back} />;
   }
 
-  const occupancy = tenant ? "Rented out" : owner ? "Owner-occupied" : "Vacant";
+  const occupancy = t(tenant ? "Rented out" : owner ? "Owner-occupied" : "Vacant");
 
   return (
     <div className="space-y-4">
@@ -119,38 +121,37 @@ export default function UnitHouseholdPanel({ societyId, unitId }: Props) {
           {occupancy}
         </span>
         <button type="button" onClick={() => setMode({ kind: "history" })} className="link text-sm">
-          View history
+          {t("View history")}
         </button>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
         {/* Owner */}
         <div className="rounded-xl border border-slate-200 p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Owner</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{t("Owner")}</p>
           {owner ? (
             <>
               <p className="mt-1 font-semibold text-slate-900">{owner.userName ?? "—"}</p>
               <p className="text-sm text-slate-500">
-                Since {fmt(owner.startDate)}
-                {tenant ? " · not living here (rented out)" : ""}
+                {t(tenant ? "Since {date} · not living here (rented out)" : "Since {date}", { date: fmt(owner.startDate) })}
               </p>
               <button
                 type="button"
                 onClick={() => setMode({ kind: "person", type: "OWNER", replace: true })}
                 className="btn-secondary btn-sm mt-3"
               >
-                Transfer ownership
+                {t("Transfer ownership")}
               </button>
             </>
           ) : (
             <>
-              <p className="mt-1 text-sm text-slate-500">No owner recorded.</p>
+              <p className="mt-1 text-sm text-slate-500">{t("No owner recorded.")}</p>
               <button
                 type="button"
                 onClick={() => setMode({ kind: "person", type: "OWNER", replace: false })}
                 className="btn-primary btn-sm mt-3"
               >
-                Add owner
+                {t("Add owner")}
               </button>
             </>
           )}
@@ -159,8 +160,8 @@ export default function UnitHouseholdPanel({ societyId, unitId }: Props) {
         {/* Tenant */}
         <div className="rounded-xl border border-slate-200 p-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Tenant</p>
-            {tenant ? <span className={`badge ${tenancyStatus(tenant).className}`}>{tenancyStatus(tenant).label}</span> : null}
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{t("Tenant")}</p>
+            {tenant ? <span className={`badge ${tenancyStatus(tenant, t).className}`}>{tenancyStatus(tenant, t).label}</span> : null}
           </div>
           {tenant ? (
             <>
@@ -170,29 +171,29 @@ export default function UnitHouseholdPanel({ societyId, unitId }: Props) {
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" onClick={() => setMode({ kind: "renew", membership: tenant })} className="btn-secondary btn-sm">
-                  Renew
+                  {t("Renew")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode({ kind: "person", type: "TENANT", replace: true })}
                   className="btn-secondary btn-sm"
                 >
-                  New tenant
+                  {t("New tenant")}
                 </button>
                 <button type="button" onClick={() => setMode({ kind: "end", membership: tenant })} className="btn-danger btn-sm">
-                  End tenancy
+                  {t("End tenancy")}
                 </button>
               </div>
             </>
           ) : (
             <>
-              <p className="mt-1 text-sm text-slate-500">Not rented out.</p>
+              <p className="mt-1 text-sm text-slate-500">{t("Not rented out.")}</p>
               <button
                 type="button"
                 onClick={() => setMode({ kind: "person", type: "TENANT", replace: false })}
                 className="btn-secondary btn-sm mt-3"
               >
-                Add tenant
+                {t("Add tenant")}
               </button>
             </>
           )}
@@ -203,18 +204,18 @@ export default function UnitHouseholdPanel({ societyId, unitId }: Props) {
       <div className="rounded-xl border border-slate-200">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
           <div>
-            <p className="section-title">Living here</p>
+            <p className="section-title">{t("Living here")}</p>
             <p className="text-xs text-slate-500">
               {data?.currentResidentType === "TENANT"
-                ? "Tenant's household"
+                ? t("Tenant's household")
                 : data?.currentResidentType === "OWNER"
-                  ? "Owner's household"
-                  : "Nobody yet"}
+                  ? t("Owner's household")
+                  : t("Nobody yet")}
             </p>
           </div>
           {residentMembershipId ? (
             <button type="button" onClick={() => setMode({ kind: "family" })} className="btn-secondary btn-sm">
-              + Family member
+              {t("+ Family member")}
             </button>
           ) : null}
         </div>
@@ -231,7 +232,7 @@ export default function UnitHouseholdPanel({ societyId, unitId }: Props) {
             ))}
           </ul>
         ) : (
-          <p className="px-4 py-4 text-sm text-slate-500">No residents recorded.</p>
+          <p className="px-4 py-4 text-sm text-slate-500">{t("No residents recorded.")}</p>
         )}
       </div>
     </div>
@@ -257,6 +258,7 @@ function FormShell({
   onCancel: () => void;
   children: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
@@ -267,10 +269,10 @@ function FormShell({
       {error ? <p className="alert-error">{error}</p> : null}
       <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
         <button type="button" onClick={onCancel} className="btn-secondary">
-          Cancel
+          {t("Cancel")}
         </button>
         <button type="submit" disabled={busy} className="btn-primary">
-          {busy ? "Saving..." : submitLabel}
+          {busy ? t("Saving...") : submitLabel}
         </button>
       </div>
     </form>
@@ -290,6 +292,7 @@ function PersonForm({
   onDone: (message: string) => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const isTenant = mode.type === "TENANT";
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -302,24 +305,24 @@ function PersonForm({
 
   const title = mode.replace
     ? isTenant
-      ? "New tenant (ends the current tenancy)"
-      : "Transfer ownership"
+      ? t("New tenant (ends the current tenancy)")
+      : t("Transfer ownership")
     : isTenant
-      ? "Add tenant"
-      : "Add owner";
+      ? t("Add tenant")
+      : t("Add owner");
   const hint = mode.replace
     ? isTenant
-      ? "The current tenant's tenancy ends on the move-in date below and moves to history."
-      : "The current owner's ownership ends on the transfer date and moves to history; their family leaves with them."
+      ? t("The current tenant's tenancy ends on the move-in date below and moves to history.")
+      : t("The current owner's ownership ends on the transfer date and moves to history; their family leaves with them.")
     : isTenant
-      ? "A tenancy is an agreement with a start and an end date. Renew it before it ends."
+      ? t("A tenancy is an agreement with a start and an end date. Renew it before it ends.")
       : undefined;
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     if (!phone.trim() && !email.trim()) {
-      setError("Add a mobile number or email: the person logs in with it.");
+      setError(t("Add a mobile number or email: the person logs in with it."));
       return;
     }
     const body = {
@@ -334,13 +337,13 @@ function PersonForm({
     try {
       if (mode.replace) {
         await replace({ ...body, effectiveDate: from }).unwrap();
-        onDone(isTenant ? "New tenant added; previous tenancy moved to history." : "Ownership transferred.");
+        onDone(t(isTenant ? "New tenant added; previous tenancy moved to history." : "Ownership transferred."));
       } else {
         await create(body).unwrap();
-        onDone(isTenant ? "Tenant added." : "Owner added.");
+        onDone(t(isTenant ? "Tenant added." : "Owner added."));
       }
     } catch (err) {
-      setError(errorMessage(err, "Could not save."));
+      setError(errorMessage(err, t("Could not save.")));
     }
   };
 
@@ -350,25 +353,25 @@ function PersonForm({
       hint={hint}
       error={error}
       busy={creating || replacing}
-      submitLabel={mode.replace ? (isTenant ? "Start new tenancy" : "Transfer") : "Save"}
+      submitLabel={t(mode.replace ? (isTenant ? "Start new tenancy" : "Transfer") : "Save")}
       onSubmit={submit}
       onCancel={onCancel}
     >
       <div className="md:col-span-2">
-        <label className="label">{isTenant ? "Tenant name" : mode.replace ? "New owner name" : "Owner name"}</label>
+        <label className="label">{t(isTenant ? "Tenant name" : mode.replace ? "New owner name" : "Owner name")}</label>
         <input value={name} onChange={(e) => setName(e.target.value)} required className="input" />
       </div>
       <div>
-        <label className="label">Mobile</label>
+        <label className="label">{t("Mobile")}</label>
         <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" className="input" />
       </div>
       <div>
-        <label className="label">Email</label>
+        <label className="label">{t("Email")}</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input" />
       </div>
       <div>
         <label className="label">
-          {mode.replace ? (isTenant ? "Moves in on" : "Transfer date") : isTenant ? "Agreement from" : "Owner since"}
+          {t(mode.replace ? (isTenant ? "Moves in on" : "Transfer date") : isTenant ? "Agreement from" : "Owner since")}
         </label>
         <input
           type="date"
@@ -385,9 +388,9 @@ function PersonForm({
       </div>
       {isTenant ? (
         <div>
-          <label className="label">Agreement to</label>
+          <label className="label">{t("Agreement to")}</label>
           <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} required className="input" />
-          <p className="hint">Defaults to an 11-month agreement.</p>
+          <p className="hint">{t("Defaults to an 11-month agreement.")}</p>
         </div>
       ) : null}
     </FormShell>
@@ -405,6 +408,7 @@ function DateForm({
   onDone: (message: string) => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const isRenew = mode.kind === "renew";
   const currentEnd = mode.membership.endDate ?? today();
   const [date, setDate] = useState(isRenew ? plusMonths(currentEnd > today() ? currentEnd : today(), 11) : today());
@@ -418,32 +422,32 @@ function DateForm({
     try {
       if (isRenew) {
         await renew({ id: mode.membership.id, societyId, endDate: date }).unwrap();
-        onDone(`Tenancy renewed until ${fmt(date)}.`);
+        onDone(t("Tenancy renewed until {date}.", { date: fmt(date) }));
       } else {
         await end({ id: mode.membership.id, societyId, endDate: date }).unwrap();
-        onDone("Tenancy ended and moved to history.");
+        onDone(t("Tenancy ended and moved to history."));
       }
     } catch (err) {
-      setError(errorMessage(err, "Could not save."));
+      setError(errorMessage(err, t("Could not save.")));
     }
   };
 
   return (
     <FormShell
-      title={isRenew ? `Renew tenancy · ${mode.membership.userName ?? ""}` : `End tenancy · ${mode.membership.userName ?? ""}`}
+      title={t(isRenew ? "Renew tenancy · {name}" : "End tenancy · {name}", { name: mode.membership.userName ?? "" })}
       hint={
         isRenew
-          ? `Current agreement ends on ${fmt(mode.membership.endDate)}. Pick the new end date.`
-          : "The tenant and their family move to the unit's history and lose portal access (unless they live in another unit)."
+          ? t("Current agreement ends on {date}. Pick the new end date.", { date: fmt(mode.membership.endDate) })
+          : t("The tenant and their family move to the unit's history and lose portal access (unless they live in another unit).")
       }
       error={error}
       busy={renewing || ending}
-      submitLabel={isRenew ? "Renew" : "End tenancy"}
+      submitLabel={t(isRenew ? "Renew" : "End tenancy")}
       onSubmit={submit}
       onCancel={onCancel}
     >
       <div>
-        <label className="label">{isRenew ? "New agreement end date" : "Move-out date"}</label>
+        <label className="label">{t(isRenew ? "New agreement end date" : "Move-out date")}</label>
         <input
           type="date"
           value={date}
@@ -468,6 +472,7 @@ function FamilyForm({
   onDone: (message: string) => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [form, setForm] = useState({ firstName: "", lastName: "", relation: "", phone: "", age: "", gender: "" });
   const [error, setError] = useState("");
   const [create, { isLoading }] = useCreateResourceMutation();
@@ -492,55 +497,55 @@ function FamilyForm({
           isActive: true,
         },
       }).unwrap();
-      onDone(`${form.firstName.trim()} added to the household.`);
+      onDone(t("{name} added to the household.", { name: form.firstName.trim() }));
     } catch (err) {
-      setError(errorMessage(err, "Could not add family member."));
+      setError(errorMessage(err, t("Could not add family member.")));
     }
   };
 
   return (
     <FormShell
-      title="Add family member"
-      hint="Added to the household currently living here."
+      title={t("Add family member")}
+      hint={t("Added to the household currently living here.")}
       error={error}
       busy={isLoading}
-      submitLabel="Add"
+      submitLabel={t("Add")}
       onSubmit={submit}
       onCancel={onCancel}
     >
       <div>
-        <label className="label">First name</label>
+        <label className="label">{t("First name")}</label>
         <input value={form.firstName} onChange={set("firstName")} required className="input" />
       </div>
       <div>
-        <label className="label">Last name</label>
+        <label className="label">{t("Last name")}</label>
         <input value={form.lastName} onChange={set("lastName")} required className="input" />
       </div>
       <div>
-        <label className="label">Relation</label>
-        <input value={form.relation} onChange={set("relation")} required list="relations" className="input" placeholder="e.g. Spouse" />
+        <label className="label">{t("Relation")}</label>
+        <input value={form.relation} onChange={set("relation")} required list="relations" className="input" placeholder={t("e.g. Spouse")} />
         <datalist id="relations">
           {["Spouse", "Son", "Daughter", "Father", "Mother", "Brother", "Sister", "Other"].map((r) => (
-            <option key={r} value={r} />
+            <option key={r} value={r} label={t(r)} />
           ))}
         </datalist>
       </div>
       <div>
-        <label className="label">Mobile</label>
+        <label className="label">{t("Mobile")}</label>
         <input type="tel" value={form.phone} onChange={set("phone")} className="input" />
-        <p className="hint">With a mobile they can log in too.</p>
+        <p className="hint">{t("With a mobile they can log in too.")}</p>
       </div>
       <div>
-        <label className="label">Age</label>
+        <label className="label">{t("Age")}</label>
         <input type="number" min="0" value={form.age} onChange={set("age")} className="input" />
       </div>
       <div>
-        <label className="label">Gender</label>
+        <label className="label">{t("Gender")}</label>
         <select value={form.gender} onChange={set("gender")} className="input">
           <option value="">—</option>
-          <option value="MALE">Male</option>
-          <option value="FEMALE">Female</option>
-          <option value="OTHER">Other</option>
+          <option value="MALE">{t("Male")}</option>
+          <option value="FEMALE">{t("Female")}</option>
+          <option value="OTHER">{t("Other")}</option>
         </select>
       </div>
     </FormShell>
@@ -554,15 +559,16 @@ function History({
   data: { allMemberships?: ResourceRecord[]; previousFamilyMembers?: ResourceRecord[] } | undefined;
   onBack: () => void;
 }) {
+  const t = useT();
   const memberships = (data?.allMemberships ?? []) as Membership[];
   const formerFamily = data?.previousFamilyMembers ?? [];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h4 className="section-title">Ownership & tenancy history</h4>
+        <h4 className="section-title">{t("Ownership & tenancy history")}</h4>
         <button type="button" onClick={onBack} className="btn-secondary btn-sm">
-          Back
+          {t("Back")}
         </button>
       </div>
 
@@ -577,24 +583,24 @@ function History({
               />
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`badge ${m.type === "OWNER" ? "bg-brand-50 text-brand-700" : "bg-sky-50 text-sky-700"}`}>
-                  {m.type === "OWNER" ? "Owner" : "Tenant"}
+                  {t(m.type === "OWNER" ? "Owner" : "Tenant")}
                 </span>
                 <span className="font-medium text-slate-800">{m.userName ?? "—"}</span>
-                {m.isActive ? <span className="badge">Current</span> : null}
+                {m.isActive ? <span className="badge">{t("Current")}</span> : null}
               </div>
               <p className="text-sm text-slate-500">
-                {fmt(m.startDate)} → {m.isActive && m.type === "OWNER" ? "present" : fmt(m.endDate)}
+                {fmt(m.startDate)} → {m.isActive && m.type === "OWNER" ? t("present") : fmt(m.endDate)}
               </p>
             </li>
           ))}
         </ol>
       ) : (
-        <p className="text-sm text-slate-500">No owners or tenants recorded yet.</p>
+        <p className="text-sm text-slate-500">{t("No owners or tenants recorded yet.")}</p>
       )}
 
       {formerFamily.length ? (
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 mb-2">Former residents</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 mb-2">{t("Former residents")}</p>
           <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
             {formerFamily.map((member) => (
               <li key={String(member.id)} className="flex justify-between px-4 py-2">

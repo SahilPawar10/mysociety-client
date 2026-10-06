@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   useCreateResourceMutation,
   useDeleteResourceMutation,
@@ -18,12 +18,14 @@ import {
 import { useAppSelector } from "@/lib/hooks";
 import ImportExportActions from "@/components/importexport/page";
 import { errorMessage } from "@/lib/api";
+import { useT, type TFunction } from "@/lib/i18n";
 
 type Props = {
   resource: string;
 };
 
 type FormState = Record<string, string | boolean>;
+const noopSubscribe = () => () => {};
 const RELATION_FIELD_TO_RESOURCE: Record<string, string> = {
   societyId: "society",
   wingId: "wing",
@@ -37,24 +39,25 @@ const RELATION_FIELD_TO_RESOURCE: Record<string, string> = {
 const getRelationOptionLabel = (
   relationResource: string,
   item: ResourceRecord,
+  t: TFunction,
 ) => {
   if (relationResource === "society") {
-    return String(item.name ?? item.city ?? "Society");
+    return String(item.name ?? item.city ?? t("Society"));
   }
   if (relationResource === "wing") {
-    return String(item.name ?? "Wing");
+    return String(item.name ?? t("Wing"));
   }
   if (relationResource === "unit") {
-    return String(item.unitNumber ?? item.name ?? "Unit");
+    return String(item.unitNumber ?? item.name ?? t("Unit"));
   }
   if (relationResource === "user") {
-    return String(item.name ?? item.email ?? item.phone ?? "User");
+    return String(item.name ?? item.email ?? item.phone ?? t("User"));
   }
   if (relationResource === "unit-membership") {
     const unit = [item.wingName, item.roomNo].filter(Boolean).join(" - ");
-    return `${String(item.userName ?? "Resident")}${unit ? ` · ${unit}` : ""}${item.type ? ` (${String(item.type)})` : ""}`;
+    return `${String(item.userName ?? t("Resident"))}${unit ? ` · ${unit}` : ""}${item.type ? ` (${String(item.type)})` : ""}`;
   }
-  return String(item.name ?? "Record");
+  return String(item.name ?? t("Record"));
 };
 
 const toInputValue = (
@@ -91,12 +94,10 @@ const toPayloadValue = (
 
 export default function ResourceCrudClient({ resource }: Props) {
   const config: ResourceConfig | undefined = RESOURCE_CONFIG_MAP[resource];
+  const t = useT();
   const user = useAppSelector((state) => state.auth.user);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // false on the server and during hydration, true after: same as a mounted flag without a setState-in-effect.
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
   const role = String(user?.role ?? "").toUpperCase();
   const isSuperAdmin = role === "SUPER_ADMIN";
@@ -261,7 +262,7 @@ export default function ResourceCrudClient({ resource }: Props) {
   }, [
     data,
     isSocietyAdmin,
-    isSuperAdmin,
+    needsSocietySelector,
     resource,
     selectedSocietyId,
     societyId,
@@ -296,7 +297,7 @@ export default function ResourceCrudClient({ resource }: Props) {
     const relationResource = RELATION_FIELD_TO_RESOURCE[column.name];
     if (relationResource) {
       const item = relationOptions[relationResource]?.find((o) => String(o.id) === String(raw));
-      return item ? getRelationOptionLabel(relationResource, item) : "—";
+      return item ? getRelationOptionLabel(relationResource, item, t) : "—";
     }
     return String(raw);
   };
@@ -305,9 +306,9 @@ export default function ResourceCrudClient({ resource }: Props) {
     return (
       <section className="space-y-4">
         <h2 className="page-title">
-          Unknown resource
+          {t("Unknown resource")}
         </h2>
-        <p className="text-slate-600">No configuration found for: {resource}</p>
+        <p className="text-slate-600">{t("No configuration found for: {resource}", { resource })}</p>
       </section>
     );
   }
@@ -316,9 +317,9 @@ export default function ResourceCrudClient({ resource }: Props) {
     return (
       <section className="space-y-4">
         <h2 className="page-title">
-          {config.label}
+          {t(config.label)}
         </h2>
-        <p className="text-slate-600">Loading...</p>
+        <p className="text-slate-600">{t("Loading...")}</p>
       </section>
     );
   }
@@ -474,7 +475,7 @@ export default function ResourceCrudClient({ resource }: Props) {
     const currentValue = formState[field.name] ?? (field.type === "checkbox" ? false : "");
     const label = (
       <label className="label" htmlFor={`f-${field.name}`}>
-        {field.label}
+        {t(field.label)}
         </label>
     );
 
@@ -489,7 +490,7 @@ export default function ResourceCrudClient({ resource }: Props) {
             checked={Boolean(currentValue)}
             onChange={(e) => setField(field.name, e.target.checked)}
           />
-          {field.label}
+          {t(field.label)}
         </label>
       );
     }
@@ -527,7 +528,7 @@ export default function ResourceCrudClient({ resource }: Props) {
                     : (societies ?? [])
             ).map((item) => ({
               value: String(item.id),
-              label: getRelationOptionLabel(relationResource, item),
+              label: getRelationOptionLabel(relationResource, item, t),
             }));
 
       return (
@@ -540,10 +541,10 @@ export default function ResourceCrudClient({ resource }: Props) {
             required={field.required}
             className="input"
           >
-            <option value="">Select {field.label.toLowerCase()}</option>
+            <option value="">{t("Select {label}", { label: t(field.label).toLowerCase() })}</option>
             {options.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {field.type === "select" ? t(option.label) : option.label}
               </option>
             ))}
           </select>
@@ -578,7 +579,7 @@ export default function ResourceCrudClient({ resource }: Props) {
   };
 
   const confirmDelete = (id: number | string | undefined) => {
-    if (window.confirm("Delete this record? This cannot be undone.")) {
+    if (window.confirm(t("Delete this record? This cannot be undone."))) {
       onDelete(id);
     }
   };
@@ -592,8 +593,8 @@ export default function ResourceCrudClient({ resource }: Props) {
     <section className="space-y-6 min-w-0">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="page-title">{config.label}</h2>
-          <p className="page-subtitle">{config.description}</p>
+          <h2 className="page-title">{t(config.label)}</h2>
+          <p className="page-subtitle">{t(config.description)}</p>
         </div>
         {isApiEnabled ? (
           <div className="flex items-center gap-2">
@@ -606,12 +607,12 @@ export default function ResourceCrudClient({ resource }: Props) {
             {resource === "society" ? (
               isSuperAdmin ? (
                 <Link href="/portal/onboard-society" className="btn-primary">
-                  + Onboard society
+                  {t("+ Onboard society")}
                 </Link>
               ) : null
             ) : canWrite ? (
               <button type="button" onClick={openCreate} disabled={!canCreate} className="btn-primary">
-                + Add {singular}
+                {t("+ Add {item}", { item: t(singular) })}
               </button>
             ) : null}
           </div>
@@ -621,7 +622,7 @@ export default function ResourceCrudClient({ resource }: Props) {
       {needsSocietySelector ? (
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-slate-600" htmlFor="society-picker">
-            Society
+            {t("Society")}
           </label>
           <select
             id="society-picker"
@@ -629,20 +630,20 @@ export default function ResourceCrudClient({ resource }: Props) {
             onChange={(e) => setSelectedSocietyId(e.target.value)}
             className="input max-w-xs"
           >
-            <option value="">Select a society</option>
+            <option value="">{t("Select a society")}</option>
             {(societies ?? []).map((society) => (
               <option key={String(society.id)} value={String(society.id)}>
-                {String(society.name ?? `Society ${society.id}`)}
+                {String(society.name ?? t("Society {id}", { id: String(society.id) }))}
               </option>
             ))}
           </select>
         </div>
       ) : null}
 
-      {!isApiEnabled ? <p className="alert-warn">This section isn&apos;t available yet.</p> : null}
+      {!isApiEnabled ? <p className="alert-warn">{t("This section isn't available yet.")}</p> : null}
 
       {feedback ? (
-        <p className={/success/i.test(feedback) ? "alert-success" : "alert-error"}>{feedback}</p>
+        <p className={/success/i.test(feedback) ? "alert-success" : "alert-error"}>{t(feedback)}</p>
       ) : null}
 
       {isApiEnabled && isLoading ? (
@@ -655,18 +656,18 @@ export default function ResourceCrudClient({ resource }: Props) {
 
       {isApiEnabled && isError ? (
         <div className="card p-6 space-y-3">
-          <p className="alert-error">Couldn&apos;t load {config.label.toLowerCase()}.</p>
+          <p className="alert-error">{t("Couldn't load {items}.", { items: t(config.label).toLowerCase() })}</p>
           <button type="button" onClick={() => refetch()} className="btn-secondary">
-            Try again
+            {t("Try again")}
           </button>
         </div>
       ) : null}
 
       {needsSocietySelector && !selectedSocietyId ? (
         <div className="card p-10 text-center">
-          <p className="section-title">Pick a society</p>
+          <p className="section-title">{t("Pick a society")}</p>
           <p className="mt-1 text-sm text-slate-500">
-            Choose a society above to see its {config.label.toLowerCase()}.
+            {t("Choose a society above to see its {items}.", { items: t(config.label).toLowerCase() })}
           </p>
         </div>
       ) : null}
@@ -678,9 +679,9 @@ export default function ResourceCrudClient({ resource }: Props) {
               <thead>
                 <tr>
                   {tableDisplayColumns.map((field) => (
-                    <th key={field.name}>{field.label}</th>
+                    <th key={field.name}>{t(field.label)}</th>
                   ))}
-                  {canEdit ? <th className="text-right">Actions</th> : null}
+                  {canEdit ? <th className="text-right">{t("Actions")}</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -690,7 +691,7 @@ export default function ResourceCrudClient({ resource }: Props) {
                       <td key={field.name} className="max-w-[240px] whitespace-normal break-words">
                         {typeof row[field.name] === "boolean" ? (
                           <span className={`badge ${row[field.name] ? "bg-brand-50 text-brand-700" : ""}`}>
-                            {row[field.name] ? "Yes" : "No"}
+                            {row[field.name] ? t("Yes") : t("No")}
                           </span>
                         ) : (
                           cellText(row, field)
@@ -701,7 +702,7 @@ export default function ResourceCrudClient({ resource }: Props) {
                       <td className="whitespace-nowrap text-right">
                         <div className="inline-flex gap-2">
                           <button type="button" onClick={() => openEdit(row)} className="btn-secondary btn-sm">
-                            Edit
+                            {t("Edit")}
                           </button>
                           {canDelete ? (
                             <button
@@ -710,7 +711,7 @@ export default function ResourceCrudClient({ resource }: Props) {
                               disabled={isDeleting}
                               className="btn-danger btn-sm"
                             >
-                              Delete
+                              {t("Delete")}
                             </button>
                           ) : null}
                         </div>
@@ -723,13 +724,13 @@ export default function ResourceCrudClient({ resource }: Props) {
           </div>
           {scopedData.length === 0 ? (
             <div className="p-10 text-center">
-              <p className="section-title">Nothing here yet</p>
+              <p className="section-title">{t("Nothing here yet")}</p>
               <p className="mt-1 text-sm text-slate-500">
                 {!canCreate
-                  ? "Records will appear here once they are added."
+                  ? t("Records will appear here once they are added.")
                   : resource === "unit-membership"
-                    ? "Import residents from Excel or add them one by one."
-                    : "Add the first one with the button above."}
+                    ? t("Import residents from Excel or add them one by one.")
+                    : t("Add the first one with the button above.")}
               </p>
             </div>
           ) : null}
@@ -741,9 +742,9 @@ export default function ResourceCrudClient({ resource }: Props) {
           <form onSubmit={onSubmit} className="modal max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4">
               <h3 className="text-lg font-semibold text-slate-900">
-                {editingId !== null ? `Edit ${singular}` : `New ${singular}`}
+                {editingId !== null ? t("Edit {item}", { item: t(singular) }) : t("New {item}", { item: t(singular) })}
               </h3>
-              <button type="button" onClick={closeForm} className="btn-ghost btn-sm" aria-label="Close">
+              <button type="button" onClick={closeForm} className="btn-ghost btn-sm" aria-label={t("Close")}>
                 ✕
               </button>
             </div>
@@ -752,10 +753,10 @@ export default function ResourceCrudClient({ resource }: Props) {
 
             <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-5">
               <button type="button" onClick={closeForm} className="btn-secondary">
-                Cancel
+                {t("Cancel")}
               </button>
               <button type="submit" disabled={isSaving} className="btn-primary">
-                {isSaving ? "Saving..." : editingId !== null ? "Save changes" : "Create"}
+                {isSaving ? t("Saving...") : editingId !== null ? t("Save changes") : t("Create")}
               </button>
             </div>
           </form>

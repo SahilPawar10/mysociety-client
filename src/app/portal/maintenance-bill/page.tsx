@@ -15,12 +15,13 @@ import {
 } from "@/lib/features/portal/portalApi";
 import { useAppSelector } from "@/lib/hooks";
 import { errorMessage } from "@/lib/api";
+import { useLang, useT } from "@/lib/i18n";
 import { downloadReceipt } from "./receipt";
 
 const thisMonth = () => new Date().toLocaleDateString("en-CA").slice(0, 7);
 const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-const monthLabel = (m: string) =>
-  new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+const monthLabel = (m: string, locale = "en-IN") =>
+  new Date(`${m}-01T00:00:00`).toLocaleDateString(locale, { month: "long", year: "numeric" });
 
 const STATUS_STYLE: Record<MaintenanceStatus, string> = {
   PAID: "bg-emerald-50 text-emerald-700",
@@ -34,6 +35,8 @@ export default function MaintenancePage() {
   const user = useAppSelector((state) => state.auth.user);
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const isAdmin = isSuperAdmin || user?.role === "SOCIETY_ADMIN";
+  const t = useT();
+  const locale = useLang() === "mr" ? "mr-IN" : "en-IN";
 
   const [selectedSocietyId, setSelectedSocietyId] = useState("");
   const [month, setMonth] = useState(thisMonth);
@@ -56,8 +59,8 @@ export default function MaintenancePage() {
     <section className="space-y-6">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="page-title">Monthly Maintenance</h2>
-          <p className="page-subtitle">Who has paid for {month ? monthLabel(month) : "the month"}.</p>
+          <h2 className="page-title">{t("Monthly Maintenance")}</h2>
+          <p className="page-subtitle">{month ? t("Who has paid for {month}.", { month: monthLabel(month, locale) }) : t("Who has paid for the month.")}</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {isSuperAdmin ? (
@@ -65,12 +68,12 @@ export default function MaintenancePage() {
               value={selectedSocietyId}
               onChange={(e) => setSelectedSocietyId(e.target.value)}
               className="input w-56"
-              aria-label="Society"
+              aria-label={t("Society")}
             >
-              <option value="">Select a society</option>
+              <option value="">{t("Select a society")}</option>
               {societies.map((s) => (
                 <option key={String(s.id)} value={String(s.id)}>
-                  {String(s.name ?? `Society ${s.id}`)}
+                  {String(s.name ?? t("Society {id}", { id: String(s.id) }))}
                 </option>
               ))}
             </select>
@@ -80,7 +83,7 @@ export default function MaintenancePage() {
             value={month}
             onChange={(e) => setMonth(e.target.value || thisMonth())}
             className="input w-44"
-            aria-label="Month"
+            aria-label={t("Month")}
           />
           {data ? (
             <button
@@ -88,16 +91,16 @@ export default function MaintenancePage() {
               className="btn-secondary"
               onClick={() => downloadReceipt(data.society, month, data.heads)}
             >
-              Blank receipt
+              {t("Blank receipt")}
             </button>
           ) : null}
           {isAdmin && societyId ? (
             <>
               <button type="button" className="btn-secondary" onClick={() => setEditing("month")}>
-                This month&apos;s fees
+                {t("This month's fees")}
               </button>
               <button type="button" className="btn-secondary" onClick={() => setEditing("setup")}>
-                Fee setup
+                {t("Fee setup")}
               </button>
             </>
           ) : null}
@@ -106,29 +109,29 @@ export default function MaintenancePage() {
 
       {!societyId ? (
         <div className="card p-10 text-center">
-          <p className="section-title">Pick a society</p>
+          <p className="section-title">{t("Pick a society")}</p>
         </div>
       ) : isLoading ? (
         <div className="card h-40 animate-pulse bg-slate-50" />
       ) : error || !data ? (
-        <p className="alert-error">{errorMessage(error, "Failed to load maintenance.")}</p>
+        <p className="alert-error">{errorMessage(error, t("Failed to load maintenance."))}</p>
       ) : (
         <>
           {isAdmin && !setupHeads.length ? (
             <div className="alert-warn flex items-center justify-between gap-3">
-              <span>Set up the fees you collect every month (Maintenance, Sinking Fund, Water…).</span>
+              <span>{t("Set up the fees you collect every month (Maintenance, Sinking Fund, Water…).")}</span>
               <button type="button" className="btn-primary btn-sm" onClick={() => setEditing("setup")}>
-                Set up fees
+                {t("Set up fees")}
               </button>
             </div>
           ) : null}
 
           <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
             {[
-              ["Collected", money(data.totals.collected), `of ${money(data.totals.due)} due`],
-              ["Paid", data.totals.paid, `of ${data.totals.units} units`],
+              [t("Collected"), money(data.totals.collected), t("of {amount} due", { amount: money(data.totals.due) })],
+              [t("Paid"), data.totals.paid, t("of {count} units", { count: data.totals.units })],
               // Partly paid units still owe money, so they count as unpaid here.
-              ["Unpaid", data.totals.unpaid + data.totals.partial, "units with dues"],
+              [t("Unpaid"), data.totals.unpaid + data.totals.partial, t("units with dues")],
             ].map(([label, value, sub]) => (
               <article key={String(label)} className="card p-5">
                 <p className="text-sm text-slate-500">{label}</p>
@@ -140,13 +143,13 @@ export default function MaintenancePage() {
 
           <div className="space-y-6">
               {!data.units.length ? (
-                <div className="card p-10 text-center text-slate-500">No units yet.</div>
+                <div className="card p-10 text-center text-slate-500">{t("No units yet.")}</div>
               ) : null}
               {/* Same tile grid as the Units tab, one block per wing (rows arrive sorted by wing). */}
               {[...new Set(data.units.map((u) => u.wingName))].map((wing) => (
                 <div key={wing}>
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Wing {wing}
+                    {t("Wing {wing}", { wing })}
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
                     {data.units
@@ -161,20 +164,20 @@ export default function MaintenancePage() {
                             isAdmin ? "hover:-translate-y-0.5 hover:shadow-md hover:border-brand-300" : ""
                           }`}
                         >
-                          <span className={`badge ${STATUS_STYLE[row.status]}`}>{row.status}</span>
+                          <span className={`badge ${STATUS_STYLE[row.status]}`}>{t(row.status)}</span>
                           <p className="mt-3 text-lg font-semibold tracking-tight text-slate-900">
                             {row.unitNumber}
                           </p>
-                          <p className="text-xs text-slate-500 mt-1">Floor {row.floor}</p>
+                          <p className="text-xs text-slate-500 mt-1">{t("Floor {floor}", { floor: row.floor })}</p>
                           <p className="mt-3 text-sm text-slate-700 truncate">
-                            {row.ownerName ?? <span className="text-slate-400">No owner</span>}
+                            {row.ownerName ?? <span className="text-slate-400">{t("No owner")}</span>}
                           </p>
                           <p className="mt-1 text-base font-semibold text-slate-900">
                             {money(row.paidAmount)}
                           </p>
                           {isAdmin ? (
                             <p className="mt-2 text-xs font-medium text-brand-700">
-                              {row.billId ? "Edit entry" : "+ Add entry"}
+                              {row.billId ? t("Edit entry") : t("+ Add entry")}
                             </p>
                           ) : null}
                         </button>
@@ -188,8 +191,8 @@ export default function MaintenancePage() {
 
       {editing === "setup" ? (
         <FeeHeadsModal
-          title="Fee setup"
-          hint="Fees collected every month. Use 0 for fees collected only sometimes; you can enter the amount per unit when adding an entry."
+          title={t("Fee setup")}
+          hint={t("Fees collected every month. Use 0 for fees collected only sometimes; you can enter the amount per unit when adding an entry.")}
           initial={setupHeads}
           initialRules={data?.society.rules ?? ""}
           societyId={societyId}
@@ -197,8 +200,8 @@ export default function MaintenancePage() {
         />
       ) : editing === "month" && data ? (
         <FeeHeadsModal
-          title={`Fees for ${monthLabel(month)}`}
-          hint="Add or remove fees for this month only. Remove them all to go back to the fee setup."
+          title={t("Fees for {month}", { month: monthLabel(month, locale) })}
+          hint={t("Add or remove fees for this month only. Remove them all to go back to the fee setup.")}
           initial={data.heads}
           societyId={societyId}
           month={month}
@@ -240,6 +243,7 @@ function FeeHeadsModal({
   const [rules, setRules] = useState(initialRules);
   const [setFeeHeads, { isLoading }] = useSetFeeHeadsMutation();
   const [message, setMessage] = useState("");
+  const t = useT();
 
   const update = (i: number, patch: Partial<FeeHead>) =>
     setHeads(heads.map((h, j) => (j === i ? { ...h, ...patch } : h)));
@@ -255,7 +259,7 @@ function FeeHeadsModal({
       }).unwrap();
       onClose();
     } catch (error) {
-      setMessage(errorMessage(error, "Failed to save fees."));
+      setMessage(errorMessage(error, t("Failed to save fees.")));
     }
   };
 
@@ -270,7 +274,7 @@ function FeeHeadsModal({
           <div key={i} className="flex items-center gap-2">
             <input
               className="input"
-              placeholder="Fee name, e.g. Sinking Fund"
+              placeholder={t("Fee name, e.g. Sinking Fund")}
               value={h.name}
               onChange={(e) => update(i, { name: e.target.value })}
             />
@@ -279,7 +283,7 @@ function FeeHeadsModal({
               type="number"
               min="0"
               step="0.01"
-              placeholder="Amount"
+              placeholder={t("Amount")}
               value={h.amount}
               onChange={(e) => update(i, { amount: e.target.value })}
               required={Boolean(h.name.trim())}
@@ -287,10 +291,10 @@ function FeeHeadsModal({
             <button
               type="button"
               className="btn-ghost btn-sm"
-              aria-label="Remove fee"
+              aria-label={t("Remove fee")}
               onClick={() => {
                 // A blank row has nothing to lose; a named fee asks first.
-                if (h.name.trim() && !window.confirm(`Remove "${h.name.trim()}"? It's only removed once you click Save.`)) {
+                if (h.name.trim() && !window.confirm(t("Remove \"{name}\"? It's only removed once you click Save.", { name: h.name.trim() }))) {
                   return;
                 }
                 setHeads(heads.filter((_, j) => j !== i));
@@ -305,31 +309,31 @@ function FeeHeadsModal({
           className="btn-secondary btn-sm"
           onClick={() => setHeads([...heads, { name: "", amount: "" }])}
         >
-          + Add fee
+          {t("+ Add fee")}
         </button>
         <p className="text-sm text-slate-600">
-          Total per unit:{" "}
+          {t("Total per unit:")}{" "}
           <strong>{money(heads.reduce((t, h) => t + (Number(h.amount) || 0), 0))}</strong>
         </p>
         {rules !== undefined ? (
           <label className="block space-y-1">
-            <span className="text-sm font-medium text-slate-700">Receipt rules</span>
+            <span className="text-sm font-medium text-slate-700">{t("Receipt rules")}</span>
             <textarea
               className="input min-h-24"
-              placeholder="e.g. 1) Pay maintenance between the 1st and 10th of every month. 2) ₹100 penalty after the 10th."
+              placeholder={t("e.g. 1) Pay maintenance between the 1st and 10th of every month. 2) ₹100 penalty after the 10th.")}
               value={rules}
               onChange={(e) => setRules(e.target.value)}
             />
-            <span className="hint">Printed at the bottom of every maintenance receipt.</span>
+            <span className="hint">{t("Printed at the bottom of every maintenance receipt.")}</span>
           </label>
         ) : null}
         {message ? <p className="alert-error">{message}</p> : null}
         <div className="flex justify-end gap-2">
           <button type="button" className="btn-secondary" onClick={onClose}>
-            Cancel
+            {t("Cancel")}
           </button>
           <button type="submit" className="btn-primary" disabled={isLoading}>
-            {isLoading ? "Saving…" : "Save"}
+            {isLoading ? t("Saving...") : t("Save")}
           </button>
         </div>
       </form>
@@ -366,6 +370,8 @@ function EntryModal({
   const [saveEntry, { isLoading }] = useSaveMaintenanceEntryMutation();
   const [deleteEntry] = useDeleteMaintenanceEntryMutation();
   const [message, setMessage] = useState("");
+  const t = useT();
+  const locale = useLang() === "mr" ? "mr-IN" : "en-IN";
 
   const received = items.reduce((t, i) => t + (i.paid ? Number(i.amount) || 0 : 0), 0);
   const total = items.reduce((t, i) => t + (Number(i.amount) || 0), 0);
@@ -374,26 +380,26 @@ function EntryModal({
     e.preventDefault();
     const charged = items.filter((i) => Number(i.amount) > 0);
     if (!charged.length) {
-      setMessage("Enter an amount for at least one fee.");
+      setMessage(t("Enter an amount for at least one fee."));
       return;
     }
     try {
       await saveEntry({ societyId, unitId: row.unitId, month, items: charged }).unwrap();
       onClose();
     } catch (error) {
-      setMessage(errorMessage(error, "Failed to save entry."));
+      setMessage(errorMessage(error, t("Failed to save entry.")));
     }
   };
 
   const onDelete = async () => {
-    if (!row.billId || !window.confirm("Delete this entry? The unit will show as unpaid.")) {
+    if (!row.billId || !window.confirm(t("Delete this entry? The unit will show as unpaid."))) {
       return;
     }
     try {
       await deleteEntry({ societyId, id: row.billId }).unwrap();
       onClose();
     } catch (error) {
-      setMessage(errorMessage(error, "Failed to delete entry."));
+      setMessage(errorMessage(error, t("Failed to delete entry.")));
     }
   };
 
@@ -405,12 +411,13 @@ function EntryModal({
             {row.wingName} - {row.unitNumber}
           </h2>
           <p className="hint">
-            {monthLabel(month)} · tick each fee that was received. Enter an amount for an occasional
-            fee to charge it to this unit.
+            {t("{month} · tick each fee that was received. Enter an amount for an occasional fee to charge it to this unit.", {
+              month: monthLabel(month, locale),
+            })}
           </p>
         </div>
         {!items.length ? (
-          <p className="alert-warn">No fees for this month. Set them up in Fee setup first.</p>
+          <p className="alert-warn">{t("No fees for this month. Set them up in Fee setup first.")}</p>
         ) : (
           <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
             {items.map((item, i) => (
@@ -437,28 +444,28 @@ function EntryModal({
                     })
                   }
                   className={`input w-28 text-right ${item.paid ? "" : "text-slate-400"}`}
-                  aria-label={`${item.name} amount`}
+                  aria-label={t("{name} amount", { name: item.name })}
                 />
               </li>
             ))}
           </ul>
         )}
         <p className="text-sm text-slate-600">
-          Received <strong>{money(received)}</strong> of {money(total)}
+          {t("Received {received} of {total}", { received: money(received), total: money(total) })}
         </p>
         {message ? <p className="alert-error">{message}</p> : null}
         <div className="flex justify-between gap-2">
           {row.billId ? (
             <div className="flex gap-2">
               <button type="button" className="btn-danger" onClick={onDelete}>
-                Delete
+                {t("Delete")}
               </button>
               <button
                 type="button"
                 className="btn-secondary"
                 onClick={() => downloadReceipt(sheet.society, month, heads, row)}
               >
-                Download receipt
+                {t("Download receipt")}
               </button>
             </div>
           ) : (
@@ -466,10 +473,10 @@ function EntryModal({
           )}
           <div className="flex gap-2">
             <button type="button" className="btn-secondary" onClick={onClose}>
-              Cancel
+              {t("Cancel")}
             </button>
             <button type="submit" className="btn-primary" disabled={isLoading || !items.length}>
-              {isLoading ? "Saving…" : "Submit"}
+              {isLoading ? t("Saving...") : t("Submit")}
             </button>
           </div>
         </div>

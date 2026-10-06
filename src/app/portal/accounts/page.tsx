@@ -16,6 +16,7 @@ import {
 } from "@/lib/features/portal/portalApi";
 import { useAppSelector } from "@/lib/hooks";
 import { errorMessage } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 const today = () => new Date().toLocaleDateString("en-CA");
 const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -37,7 +38,7 @@ const MANAGED_AT: Partial<Record<LedgerSource, [string, string]>> = {
 };
 
 /** Financial year (Apr–Mar) starting in `start`. */
-const fy = (start: number) => ({ from: `${start}-04-01`, to: `${start + 1}-03-31`, label: `FY ${start}-${String(start + 1).slice(2)}` });
+const fy = (start: number) => ({ from: `${start}-04-01`, to: `${start + 1}-03-31`, years: `${start}-${String(start + 1).slice(2)}` });
 const currentFyStart = () => {
   const [y, m] = today().split("-").map(Number);
   return m >= 4 ? y : y - 1;
@@ -46,6 +47,7 @@ const currentFyStart = () => {
 type Tab = "credits" | "debits" | "balance";
 
 export default function AccountsPage() {
+  const t = useT();
   const user = useAppSelector((state) => state.auth.user);
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const [selectedSocietyId, setSelectedSocietyId] = useState("");
@@ -61,10 +63,9 @@ export default function AccountsPage() {
     <section className="space-y-6">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="page-title">Credits &amp; Debits</h2>
+          <h2 className="page-title">{t("Credits & Debits")}</h2>
           <p className="page-subtitle">
-            Every rupee in and out, by category. Use the same category for repeated entries so the balance sheet adds
-            them up.
+            {t("Every rupee in and out, by category. Use the same category for repeated entries so the balance sheet adds them up.")}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -73,12 +74,12 @@ export default function AccountsPage() {
               value={selectedSocietyId}
               onChange={(e) => setSelectedSocietyId(e.target.value)}
               className="input w-56"
-              aria-label="Society"
+              aria-label={t("Society")}
             >
-              <option value="">Select a society</option>
+              <option value="">{t("Select a society")}</option>
               {societies.map((s) => (
                 <option key={String(s.id)} value={String(s.id)}>
-                  {String(s.name ?? `Society ${s.id}`)}
+                  {String(s.name ?? t("Society {id}", { id: String(s.id) }))}
                 </option>
               ))}
             </select>
@@ -87,11 +88,11 @@ export default function AccountsPage() {
             value={fyStart}
             onChange={(e) => setFyStart(Number(e.target.value))}
             className="input w-36"
-            aria-label="Financial year"
+            aria-label={t("Financial year")}
           >
             {Array.from({ length: 6 }, (_, i) => currentFyStart() - i).map((y) => (
               <option key={y} value={y}>
-                {fy(y).label}
+                {t("FY {years}", { years: fy(y).years })}
               </option>
             ))}
           </select>
@@ -116,22 +117,22 @@ export default function AccountsPage() {
               tab === key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"
             }`}
           >
-            {label}
+            {t(label)}
           </button>
         ))}
         {tab !== "balance" && societyId ? (
           <button type="button" onClick={() => setAdding(true)} className="btn-primary ml-auto">
-            {tab === "credits" ? "+ Add credit" : "+ Add expense"}
+            {tab === "credits" ? t("+ Add credit") : t("+ Add expense")}
           </button>
         ) : null}
       </div>
 
       {!societyId ? (
         <div className="card p-10 text-center">
-          <p className="section-title">Pick a society</p>
+          <p className="section-title">{t("Pick a society")}</p>
         </div>
       ) : tab === "balance" ? (
-        <BalanceSheet societyId={societyId} from={from} to={to} label={fy(fyStart).label} />
+        <BalanceSheet societyId={societyId} from={from} to={to} label={t("FY {years}", { years: fy(fyStart).years })} />
       ) : (
         <EntryList key={tab} side={tab} societyId={societyId} from={from} to={to} />
       )}
@@ -154,15 +155,16 @@ function EntryList({
   from: string;
   to: string;
 }) {
+  const t = useT();
   const { data: entries = [], isLoading, error } = useGetLedgerQuery({ societyId, side, from, to });
   const [deleteCredit] = useDeleteCreditEntryMutation();
   const [deleteResource] = useDeleteResourceMutation();
   const [message, setMessage] = useState("");
-  const total = entries.reduce((t, e) => t + e.amount, 0);
+  const total = entries.reduce((sum, e) => sum + e.amount, 0);
   const isCredit = side === "credits";
 
   const onDelete = async (e: LedgerEntry) => {
-    if (!e.id || !window.confirm(`Delete "${e.title}"?`)) {
+    if (!e.id || !window.confirm(t('Delete "{title}"?', { title: e.title }))) {
       return;
     }
     try {
@@ -172,7 +174,7 @@ function EntryList({
         await deleteResource({ resource: "society-expense", id: e.id, societyId }).unwrap();
       }
     } catch (err) {
-      setMessage(errorMessage(err, "Delete failed."));
+      setMessage(errorMessage(err, t("Delete failed.")));
     }
   };
 
@@ -180,7 +182,7 @@ function EntryList({
     return <div className="card h-40 animate-pulse bg-slate-50" />;
   }
   if (error) {
-    return <p className="alert-error">{errorMessage(error, `Failed to load ${side}.`)}</p>;
+    return <p className="alert-error">{errorMessage(error, isCredit ? t("Failed to load credits.") : t("Failed to load debits."))}</p>;
   }
 
   return (
@@ -191,17 +193,17 @@ function EntryList({
           <table className="table min-w-max">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Category</th>
+                <th>{t("Date")}</th>
+                <th>{t("Type")}</th>
+                <th>{t("Category")}</th>
                 {isCredit ? (
                   <>
-                    <th>Unit</th>
-                    <th>Owner</th>
+                    <th>{t("Unit")}</th>
+                    <th>{t("Owner")}</th>
                   </>
                 ) : null}
-                <th>Details</th>
-                <th className="text-right">Amount</th>
+                <th>{t("Details")}</th>
+                <th className="text-right">{t("Amount")}</th>
                 <th />
               </tr>
             </thead>
@@ -214,7 +216,7 @@ function EntryList({
                       {new Date(e.date).toLocaleDateString("en-IN")}
                     </td>
                     <td>
-                      <span className="badge bg-slate-100 text-slate-600">{SOURCE[e.source]}</span>
+                      <span className="badge bg-slate-100 text-slate-600">{t(SOURCE[e.source])}</span>
                     </td>
                     <td className="font-medium text-slate-800">{e.category}</td>
                     {isCredit ? (
@@ -228,10 +230,10 @@ function EntryList({
                     <td className="text-right whitespace-nowrap">
                       {managed ? (
                         <Link href={managed[0]} className="link text-xs">
-                          {managed[1]}
+                          {t(managed[1])}
                         </Link>
                       ) : (
-                        <button type="button" className="btn-ghost btn-sm" aria-label="Delete" onClick={() => onDelete(e)}>
+                        <button type="button" className="btn-ghost btn-sm" aria-label={t("Delete")} onClick={() => onDelete(e)}>
                           ✕
                         </button>
                       )}
@@ -244,7 +246,7 @@ function EntryList({
               <tfoot>
                 <tr>
                   <td colSpan={isCredit ? 6 : 4} className="font-semibold">
-                    Total {side}
+                    {isCredit ? t("Total credits") : t("Total debits")}
                   </td>
                   <td className="text-right font-semibold">{money(total)}</td>
                   <td />
@@ -255,7 +257,7 @@ function EntryList({
         </div>
         {!entries.length ? (
           <div className="p-10 text-center">
-            <p className="section-title">No {side} in this year</p>
+            <p className="section-title">{isCredit ? t("No credits in this year") : t("No debits in this year")}</p>
           </div>
         ) : null}
       </div>
@@ -273,6 +275,7 @@ function AddEntryModal({
   societyId: number;
   onClose: () => void;
 }) {
+  const t = useT();
   const isCredit = side === "credits";
   const [form, setForm] = useState({
     category: "",
@@ -314,7 +317,7 @@ function AddEntryModal({
       }
       onClose();
     } catch (err) {
-      setMessage(errorMessage(err, "Failed to save."));
+      setMessage(errorMessage(err, t("Failed to save.")));
     }
   };
 
@@ -324,16 +327,16 @@ function AddEntryModal({
     <div className="modal-backdrop" onClick={onClose}>
       <form className="modal max-w-lg space-y-4" onClick={(e) => e.stopPropagation()} onSubmit={onSubmit}>
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">{isCredit ? "New credit" : "New expense"}</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{isCredit ? t("New credit") : t("New expense")}</h2>
           <p className="hint">
             {isCredit
-              ? "Money received other than maintenance: hall booking, interest, donation…"
-              : "Vendor payments and asset purchases are added from their own pages."}
+              ? t("Money received other than maintenance: hall booking, interest, donation…")
+              : t("Vendor payments and asset purchases are added from their own pages.")}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <label className="block space-y-1 col-span-2">
-            <span className="label">Category (pick an existing one for repeated entries)</span>
+            <span className="label">{t("Category (pick an existing one for repeated entries)")}</span>
             <input
               className="input"
               required
@@ -348,11 +351,11 @@ function AddEntryModal({
             </datalist>
           </label>
           <label className="block space-y-1 col-span-2">
-            <span className="label">Title</span>
+            <span className="label">{t("Title")}</span>
             <input className="input" value={form.title} onChange={(e) => set({ title: e.target.value })} />
           </label>
           <label className="block space-y-1">
-            <span className="label">Amount</span>
+            <span className="label">{t("Amount")}</span>
             <input
               type="number"
               min="0.01"
@@ -364,15 +367,15 @@ function AddEntryModal({
             />
           </label>
           <label className="block space-y-1">
-            <span className="label">Date</span>
+            <span className="label">{t("Date")}</span>
             <input type="date" className="input" required value={form.date} onChange={(e) => set({ date: e.target.value })} />
           </label>
           {isCredit ? (
             <>
               <label className="block space-y-1">
-                <span className="label">Unit (optional)</span>
+                <span className="label">{t("Unit (optional)")}</span>
                 <select className="input" value={form.unitId} onChange={(e) => set({ unitId: e.target.value })}>
-                  <option value="">Not from a flat</option>
+                  <option value="">{t("Not from a flat")}</option>
                   {unitList.map((u) => (
                     <option key={String(u.id)} value={String(u.id)}>
                       {[wingName(u.wingId), u.unitNumber].filter(Boolean).join(" - ")}
@@ -381,40 +384,42 @@ function AddEntryModal({
                 </select>
               </label>
               <label className="block space-y-1">
-                <span className="label">Owner / paid by</span>
+                <span className="label">{t("Owner / paid by")}</span>
                 <input
                   className="input"
-                  placeholder={form.unitId ? "Blank = the unit's owner" : ""}
+                  placeholder={form.unitId ? t("Blank = the unit's owner") : ""}
                   value={form.ownerName}
                   onChange={(e) => set({ ownerName: e.target.value })}
                 />
               </label>
               <label className="block space-y-1">
-                <span className="label">Mode</span>
+                <span className="label">{t("Mode")}</span>
                 <select className="input" value={form.paymentMode} onChange={(e) => set({ paymentMode: e.target.value })}>
                   {MODES.map((m) => (
-                    <option key={m}>{m}</option>
+                    <option key={m} value={m}>
+                      {t(m)}
+                    </option>
                   ))}
                 </select>
               </label>
               <label className="block space-y-1">
-                <span className="label">Cheque / transaction no.</span>
+                <span className="label">{t("Cheque / transaction no.")}</span>
                 <input className="input" value={form.reference} onChange={(e) => set({ reference: e.target.value })} />
               </label>
             </>
           ) : null}
           <label className="block space-y-1 col-span-2">
-            <span className="label">Note</span>
+            <span className="label">{t("Note")}</span>
             <textarea className="input" value={form.note} onChange={(e) => set({ note: e.target.value })} />
           </label>
         </div>
         {message ? <p className="alert-error">{message}</p> : null}
         <div className="flex justify-end gap-2">
           <button type="button" className="btn-secondary" onClick={onClose}>
-            Cancel
+            {t("Cancel")}
           </button>
           <button type="submit" className="btn-primary" disabled={savingCredit || savingDebit}>
-            {savingCredit || savingDebit ? "Saving…" : "Save"}
+            {savingCredit || savingDebit ? t("Saving...") : t("Save")}
           </button>
         </div>
       </form>
@@ -424,13 +429,14 @@ function AddEntryModal({
 
 /** Year totals per type + category, credits beside debits, with the surplus / deficit. */
 function BalanceSheet({ societyId, from, to, label }: { societyId: number; from: string; to: string; label: string }) {
+  const t = useT();
   const { data, isLoading, error } = useGetLedgerSummaryQuery({ societyId, from, to });
 
   if (isLoading) {
     return <div className="card h-40 animate-pulse bg-slate-50" />;
   }
   if (error || !data) {
-    return <p className="alert-error">{errorMessage(error, "Failed to load the balance sheet.")}</p>;
+    return <p className="alert-error">{errorMessage(error, t("Failed to load the balance sheet."))}</p>;
   }
 
   const side = (title: string, groups: typeof data.credits) => (
@@ -445,7 +451,7 @@ function BalanceSheet({ societyId, from, to, label }: { societyId: number; from:
               <td>
                 <p className="font-medium text-slate-800">{g.category}</p>
                 <p className="text-xs text-slate-500">
-                  {SOURCE[g.source]} · {g.count} {g.count === 1 ? "entry" : "entries"}
+                  {t(SOURCE[g.source])} · {g.count === 1 ? t("{count} entry", { count: g.count }) : t("{count} entries", { count: g.count })}
                 </p>
               </td>
               <td className="text-right font-medium">{money(g.amount)}</td>
@@ -454,14 +460,14 @@ function BalanceSheet({ societyId, from, to, label }: { societyId: number; from:
           {!groups.groups.length ? (
             <tr>
               <td colSpan={2} className="text-center text-slate-500">
-                Nothing this year
+                {t("Nothing this year")}
               </td>
             </tr>
           ) : null}
         </tbody>
         <tfoot>
           <tr>
-            <td className="font-semibold">Total</td>
+            <td className="font-semibold">{t("Total")}</td>
             <td className="text-right font-semibold">{money(groups.total)}</td>
           </tr>
         </tfoot>
@@ -473,18 +479,22 @@ function BalanceSheet({ societyId, from, to, label }: { societyId: number; from:
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm text-slate-600">
-          {label} · {new Date(from).toLocaleDateString("en-IN")} to {new Date(to).toLocaleDateString("en-IN")}
+          {t("{label} · {from} to {to}", {
+            label,
+            from: new Date(from).toLocaleDateString("en-IN"),
+            to: new Date(to).toLocaleDateString("en-IN"),
+          })}
         </p>
         <button type="button" className="btn-secondary print:hidden" onClick={() => window.print()}>
-          Print
+          {t("Print")}
         </button>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        {side("Credits (income)", data.credits)}
-        {side("Debits (expenditure)", data.debits)}
+        {side(t("Credits (income)"), data.credits)}
+        {side(t("Debits (expenditure)"), data.debits)}
       </div>
       <div className={data.net >= 0 ? "alert-success" : "alert-error"}>
-        {data.net >= 0 ? "Surplus" : "Deficit"} for the year: <strong>{money(Math.abs(data.net))}</strong>
+        {data.net >= 0 ? t("Surplus for the year:") : t("Deficit for the year:")} <strong>{money(Math.abs(data.net))}</strong>
       </div>
     </div>
   );

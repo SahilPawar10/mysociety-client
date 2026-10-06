@@ -10,6 +10,7 @@ export type AuthUser = {
   isActive?: boolean | null;
   societyId?: number | null;
   firebaseUid?: string | null;
+  language?: "en" | "mr" | null;
 };
 
 export const authApi = createApi({
@@ -20,7 +21,11 @@ export const authApi = createApi({
     login: builder.mutation<{ user: AuthUser }, void>({
       query: () => ({ url: "/v1/auth/login", method: "POST" }),
     }),
+    // null clears the saved language, so the portal asks again on every visit.
+    saveLanguage: builder.mutation<{ user: AuthUser }, "en" | "mr" | null>({
+      query: (language) => ({ url: "/v1/auth/language", method: "PUT", body: { language } }),
+    }),
   }),
 });
 
-export const { useLoginMutation } = authApi;
+export const { useLoginMutation, useSaveLanguageMutation } = authApi;
