@@ -7,6 +7,8 @@ import { signOut } from "firebase/auth";
 import { auth } from "../../../firebase";
 import { useAppSelector } from "@/lib/hooks";
 import { RESOURCE_CONFIGS } from "@/lib/features/portal/resourceConfig";
+import { useT } from "@/lib/i18n";
+import LanguageChooser from "@/components/portal/LanguageChooser";
 
 // What a MEMBER may open; the backend refuses the rest (users, memberships, family members…).
 const MEMBER_RESOURCES = ["complaint", "maintenance-bill", "staff", "asset"];
@@ -31,6 +33,7 @@ export default function PortalLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const t = useT();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -50,22 +53,22 @@ export default function PortalLayout({
       return MEMBER_RESOURCES.includes(resource.key);
     });
 
-    const overview: NavItem[] = [{ href: "/portal", label: "Dashboard" }];
+    const overview: NavItem[] = [{ href: "/portal", label: t("Dashboard") }];
     if (isSuperAdmin) {
-      overview.push({ href: "/portal/onboard-society", label: "Onboard society" });
+      overview.push({ href: "/portal/onboard-society", label: t("Onboard society") });
     }
 
     return [
-      { title: "Overview", items: overview },
+      { title: t("Overview"), items: overview },
       ...GROUPS.map((group) => ({
-        title: group.title,
+        title: t(group.title),
         items: allowed
           .filter((resource) => group.keys.includes(resource.key))
-          .map((resource) => ({ href: resource.path, label: resource.label })),
+          .map((resource) => ({ href: resource.path, label: t(resource.label) })),
       })),
-      { title: "Account", items: [{ href: "/portal/profile", label: "Profile" }] },
+      { title: t("Account"), items: [{ href: "/portal/profile", label: t("Profile") }] },
     ].filter((section) => section.items.length > 0);
-  }, [isSuperAdmin, role]);
+  }, [isSuperAdmin, role, t]);
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -80,7 +83,7 @@ export default function PortalLayout({
     return (
       <div className="min-h-screen flex items-center justify-center gap-3 text-slate-500">
         <span className="h-5 w-5 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
-        Loading your society...
+        {t("Loading your society...")}
       </div>
     );
   }
@@ -96,6 +99,7 @@ export default function PortalLayout({
 
   return (
     <div className="min-h-screen md:flex">
+      <LanguageChooser />
       <aside className="hidden md:flex md:w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
         <div className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-100">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-sm font-bold text-white">
@@ -136,11 +140,11 @@ export default function PortalLayout({
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-slate-800">{displayName}</p>
-              <p className="text-xs text-slate-500">{ROLE_LABEL[role ?? ""] ?? role}</p>
+              <p className="text-xs text-slate-500">{t(ROLE_LABEL[role ?? ""] ?? role ?? "")}</p>
             </div>
           </div>
           <button type="button" onClick={handleLogout} className="btn-secondary w-full mt-3">
-            Log out
+            {t("Log out")}
           </button>
         </div>
       </aside>
@@ -150,7 +154,7 @@ export default function PortalLayout({
         <div className="flex items-center justify-between px-4 h-14">
           <span className="font-semibold text-slate-900">MySociety</span>
           <button type="button" onClick={handleLogout} className="btn-ghost btn-sm">
-            Log out
+            {t("Log out")}
           </button>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-2">
@@ -174,7 +178,7 @@ export default function PortalLayout({
             children
           ) : (
             <div className="card p-10 text-center">
-              <p className="section-title">Only society admins can open this page.</p>
+              <p className="section-title">{t("Only society admins can open this page.")}</p>
             </div>
           )}
         </div>

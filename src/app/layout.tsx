@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import ReduxProvider from "@/components/providers/ReduxProvider";
 import "./globals.css";
 
@@ -11,6 +12,15 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Geist has no Devanagari, so Marathi text falls through to Mukta (see --font-sans).
+const mukta = localFont({
+  src: [
+    { path: "../../public/fonts/Mukta-Regular.ttf", weight: "400" },
+    { path: "../../public/fonts/Mukta-Bold.ttf", weight: "700" },
+  ],
+  variable: "--font-mukta",
 });
 
 export const metadata: Metadata = {
@@ -25,7 +35,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${mukta.variable} antialiased`}>
         <ReduxProvider>{children}</ReduxProvider>
       </body>
     </html>

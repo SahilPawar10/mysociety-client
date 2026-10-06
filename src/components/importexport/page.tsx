@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ImportModal from "./importmodel";
+import { useT } from "@/lib/i18n";
 
 export type ImportKind = "unit" | "unit-membership" | "asset";
 
@@ -10,6 +11,7 @@ type Props = {
 
 export default function ImportExportActions({ kind, societyId }: Props) {
   const [open, setOpen] = useState(false);
+  const t = useT();
 
   return (
     <>
@@ -18,7 +20,7 @@ export default function ImportExportActions({ kind, societyId }: Props) {
         onClick={() => setOpen(true)}
         className="btn-primary"
       >
-        Import Excel
+        {t("Import Excel")}
       </button>
 
       {open ? (

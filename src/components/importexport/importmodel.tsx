@@ -5,6 +5,7 @@ import {
   type ImportResult,
 } from "@/lib/features/portal/portalApi";
 import { downloadBlob, errorMessage } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import type { ImportKind } from "./page";
 
 const IMPORTS = {
@@ -40,6 +41,7 @@ type Props = {
 /** Pick file → Preview (dry run, nothing saved) → Import → result. */
 export default function ImportModal({ kind, societyId, onClose }: Props) {
   const config = IMPORTS[kind];
+  const t = useT();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportResult | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -98,10 +100,10 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
       <div className="modal max-w-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">{config.title}</h2>
-            <p className="mt-1 text-sm text-slate-500">{config.help}</p>
+            <h2 className="text-lg font-semibold text-slate-900">{t(config.title)}</h2>
+            <p className="mt-1 text-sm text-slate-500">{t(config.help)}</p>
           </div>
-          <button type="button" onClick={onClose} className="btn-ghost btn-sm" aria-label="Close">
+          <button type="button" onClick={onClose} className="btn-ghost btn-sm" aria-label={t("Close")}>
             ✕
           </button>
         </div>
@@ -116,7 +118,7 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
               >
                 {i + 1}
               </span>
-              <span className={step > i ? "text-slate-800" : "text-slate-400"}>{label}</span>
+              <span className={step > i ? "text-slate-800" : "text-slate-400"}>{t(label)}</span>
               {i < 2 ? <span className="mx-1 h-px w-6 bg-slate-200" /> : null}
             </li>
           ))}
@@ -135,30 +137,30 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
               className="file-input"
             />
             <p className="hint">
-              Don&apos;t have the sheet?{" "}
+              {t("Don't have the sheet?")}{" "}
               <button type="button" onClick={downloadTemplate} className="link">
-                Download the template
+                {t("Download the template")}
               </button>{" "}
-              (already filled with your society&apos;s data).
+              {t("(already filled with your society's data).")}
             </p>
           </div>
         ) : null}
 
-        {error ? <p className="mt-4 alert-error">{error}</p> : null}
+        {error ? <p className="mt-4 alert-error">{t(error)}</p> : null}
 
         {shown ? (
           <div className="mt-5 space-y-4">
             <p className={result ? "alert-success" : "alert-warn"}>
               {result
-                ? "Import finished."
-                : "Preview only: nothing is saved until you click Import."}
+                ? t("Import finished.")
+                : t("Preview only: nothing is saved until you click Import.")}
             </p>
 
             <div className="grid grid-cols-3 gap-3">
               {summary(shown).map(([value, label]) => (
                 <div key={label} className="rounded-xl border border-slate-200 p-3 text-center">
                   <p className="text-2xl font-semibold text-slate-900">{value}</p>
-                  <p className="text-xs text-slate-500">{label}</p>
+                  <p className="text-xs text-slate-500">{t(String(label))}</p>
                 </div>
               ))}
             </div>
@@ -169,8 +171,8 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
                   <table className="table">
                     <thead className="sticky top-0">
                       <tr>
-                        <th className="w-24">Excel row</th>
-                        <th>Why it was skipped</th>
+                        <th className="w-24">{t("Excel row")}</th>
+                        <th>{t("Why it was skipped")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -190,7 +192,7 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
 
         <div className="mt-6 flex justify-end gap-3">
           <button type="button" onClick={onClose} className="btn-secondary">
-            {result ? "Close" : "Cancel"}
+            {result ? t("Close") : t("Cancel")}
           </button>
 
           {!result && !preview ? (
@@ -200,7 +202,7 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
               disabled={!file || isLoading}
               className="btn-primary"
             >
-              {isLoading ? "Checking..." : "Preview"}
+              {isLoading ? t("Checking...") : t("Preview")}
             </button>
           ) : null}
 
@@ -211,7 +213,7 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
               disabled={isLoading || willImport(preview) === 0}
               className="btn-primary"
             >
-              {isLoading ? "Importing..." : `Import ${willImport(preview)} records`}
+              {isLoading ? t("Importing...") : t("Import {count} records", { count: willImport(preview) })}
             </button>
           ) : null}
         </div>

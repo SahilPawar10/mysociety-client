@@ -11,6 +11,7 @@ import { useAppSelector } from "@/lib/hooks";
 import ImportExportActions from "@/components/importexport/page";
 import UnitHouseholdPanel from "@/components/unit/UnitHouseholdPanel";
 import { errorMessage } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 const toNumber = (value: unknown) => {
   const n = Number(value);
@@ -30,6 +31,11 @@ const getRelatedId = (value: unknown) => {
     return toId(record.id);
   }
   return toId(value);
+};
+
+const membershipTypeLabels: Record<string, string> = {
+  OWNER: "Owner",
+  TENANT: "Tenant",
 };
 
 const isActiveMembership = (membership: ResourceRecord) => {
@@ -60,6 +66,7 @@ const isActiveMembership = (membership: ResourceRecord) => {
 };
 
 export default function UnitHomesPage() {
+  const t = useT();
   const user = useAppSelector((state) => state.auth.user);
   const role = String(user?.role ?? "").toUpperCase();
   const isSuperAdmin = role === "SUPER_ADMIN";
@@ -179,10 +186,10 @@ export default function UnitHomesPage() {
   const wingNameById = useMemo(() => {
     const map = new Map<number, string>();
     wings.forEach((wing) => {
-      map.set(toNumber(wing.id), String(wing.name ?? `Wing ${wing.id}`));
+      map.set(toNumber(wing.id), String(wing.name ?? t("Wing {id}", { id: String(wing.id) })));
     });
     return map;
-  }, [wings]);
+  }, [wings, t]);
 
   const membersByUnitId = useMemo(() => {
     const usersMap = new Map<number, ResourceRecord>();
@@ -282,7 +289,7 @@ export default function UnitHomesPage() {
       setNewUnitAreaSqft("");
       setMessage("Unit details saved successfully.");
     } catch (error) {
-      setMessage(errorMessage(error, "Failed to create unit."));
+      setMessage(errorMessage(error, t("Failed to create unit.")));
     }
   };
 
@@ -338,7 +345,7 @@ export default function UnitHomesPage() {
       setUnitModalView("list");
       setMessage("Unit details updated successfully.");
     } catch (error) {
-      setMessage(errorMessage(error, "Failed to update unit."));
+      setMessage(errorMessage(error, t("Failed to update unit.")));
     }
   };
 
@@ -346,8 +353,8 @@ export default function UnitHomesPage() {
     <section className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="page-title">Units</h2>
-          <p className="page-subtitle">Pick a wing to see its flats. Click a flat to manage owners, tenants and family.</p>
+          <h2 className="page-title">{t("Units")}</h2>
+          <p className="page-subtitle">{t("Pick a wing to see its flats. Click a flat to manage owners, tenants and family.")}</p>
         </div>
       </div>
 
@@ -356,7 +363,7 @@ export default function UnitHomesPage() {
         {isSuperAdmin && (
           <div className="card p-4 flex-1 min-w-[250px]">
             <label className="label">
-              Select Society
+              {t("Select Society")}
             </label>
             <select
               value={selectedSocietyId}
@@ -366,10 +373,10 @@ export default function UnitHomesPage() {
               }}
               className="input"
             >
-              <option value="">Select society</option>
+              <option value="">{t("Select society")}</option>
               {societies.map((s) => (
                 <option key={String(s.id)} value={String(s.id)}>
-                  {String(s.name ?? `Society ${s.id}`)}
+                  {String(s.name ?? t("Society {id}", { id: String(s.id) }))}
                 </option>
               ))}
             </select>
@@ -381,7 +388,7 @@ export default function UnitHomesPage() {
           <>
             <div className="card p-4 flex-1 min-w-[250px]">
               <label className="label">
-                Select Wing
+                {t("Select Wing")}
               </label>
               <select
                 value={selectedWingId}
@@ -392,10 +399,10 @@ export default function UnitHomesPage() {
                 }}
                 className="input"
               >
-                <option value="">Select Wing</option>
+                <option value="">{t("Select Wing")}</option>
                 {wings.map((w) => (
                   <option key={String(w.id)} value={String(w.id)}>
-                    {String(w.name ?? `Wing ${w.id}`)}
+                    {String(w.name ?? t("Wing {id}", { id: String(w.id) }))}
                   </option>
                 ))}
               </select>
@@ -410,7 +417,7 @@ export default function UnitHomesPage() {
       </div>
       {effectiveSocietyId && wings.length === 0 ? (
         <p className="alert-warn">
-          No wings yet. Create wings on the Wings page first, then add or import units here.
+          {t("No wings yet. Create wings on the Wings page first, then add or import units here.")}
         </p>
       ) : null}
       {selectedWingId ? (
@@ -419,9 +426,9 @@ export default function UnitHomesPage() {
           <div className="flex items-center justify-between gap-4 mb-4">
             {/* Stats Card */}
             <div className="card px-4 py-3 text-sm text-slate-600">
-              Planned units: <span className="font-semibold">{unitsCount}</span>
+              {t("Planned units:")} <span className="font-semibold">{unitsCount}</span>
               <span className="mx-2 text-slate-400">|</span>
-              Created units:{" "}
+              {t("Created units:")}{" "}
               <span className="font-semibold">{sortedUnits.length}</span>
             </div>
           </div>
@@ -466,40 +473,48 @@ export default function UnitHomesPage() {
                             : "bg-amber-50 text-amber-700"
                       }`}
                     >
-                      {!unit ? "Empty slot" : primaryMembership ? "Occupied" : "Vacant"}
+                      {t(!unit ? "Empty slot" : primaryMembership ? "Occupied" : "Vacant")}
                     </span>
                   </div>
                   <p className="mt-3 text-lg font-semibold tracking-tight text-slate-900">
                     {unit
-                      ? String(unit.unitNumber ?? `Unit ${unit.id}`)
-                      : `Home ${slot}`}
+                      ? String(unit.unitNumber ?? t("Unit {id}", { id: String(unit.id) }))
+                      : t("Home {slot}", { slot })}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
                     {unit
-                      ? (wingNameById.get(toNumber(unit.wingId)) ?? "No wing")
-                      : "Blank slot"}
+                      ? (wingNameById.get(toNumber(unit.wingId)) ?? t("No wing"))
+                      : t("Blank slot")}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    Floor {unit ? String(unit.floorNumber ?? "-") : "-"} · Parking{" "}
-                    {unit ? String(unit.parkingSlots ?? "-") : "-"}
+                    {t("Floor {floor} · Parking {parking}", {
+                      floor: unit ? String(unit.floorNumber ?? "-") : "-",
+                      parking: unit ? String(unit.parkingSlots ?? "-") : "-",
+                    })}
                   </p>
                   <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-400">
                     {unit
-                      ? String(
-                          primaryMembership?.membership.type ?? "No membership",
+                      ? t(
+                          membershipTypeLabels[
+                            String(primaryMembership?.membership.type)
+                          ] ??
+                            String(
+                              primaryMembership?.membership.type ??
+                                "No membership",
+                            ),
                         )
-                      : "Available"}
+                      : t("Available")}
                   </p>
                   <p className="text-sm text-slate-700 truncate">
                     {unit
-                      ? `Owner: ${
+                      ? t("Owner: {name}", { name: String(
                           membershipList.find(
                             (m) => String(m.membership.type) === "OWNER",
                           )?.user?.name ??
                           primaryMembership?.user?.name ??
                           "-"
-                        }`
-                      : "Owner: -"}
+                        ) })
+                      : t("Owner: {name}", { name: "-" })}
                   </p>
                 </button>
               );
@@ -520,8 +535,8 @@ export default function UnitHomesPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-slate-900">
                     {selectedUnit
-                      ? `Flat ${String(selectedUnit.unitNumber ?? "")}`
-                      : `Planned unit ${selectedSlotNumber ?? ""}`}
+                      ? t("Flat {number}", { number: String(selectedUnit.unitNumber ?? "") })
+                      : t("Planned unit {slot}", { slot: selectedSlotNumber ?? "" })}
                   </h3>
                   <button
                     type="button"
@@ -531,7 +546,7 @@ export default function UnitHomesPage() {
                     }}
                     className="btn-secondary btn-sm"
                   >
-                    Close
+                    {t("Close")}
                   </button>
                 </div>
 
@@ -542,17 +557,17 @@ export default function UnitHomesPage() {
                       ["Wing", wingNameById.get(toNumber(selectedUnit.wingId)) ?? "—"],
                       ["Floor", String(selectedUnit.floorNumber ?? "—")],
                       ["Parking", String(selectedUnit.parkingSlots || "—")],
-                      ["Area", selectedUnit.areaSqft ? `${String(selectedUnit.areaSqft)} sq ft` : "—"],
+                      ["Area", selectedUnit.areaSqft ? t("{area} sq ft", { area: String(selectedUnit.areaSqft) }) : "—"],
                     ].map(([label, value]) => (
                       <div key={label}>
-                        <dt className="text-xs text-slate-500">{label}</dt>
+                        <dt className="text-xs text-slate-500">{t(label)}</dt>
                         <dd className="font-medium text-slate-800">{value}</dd>
                       </div>
                     ))}
                   </dl>
                 ) : (
                   <p className="text-sm text-slate-500">
-                    This planned unit has no details yet. Fill them in to create it.
+                    {t("This planned unit has no details yet. Fill them in to create it.")}
                   </p>
                 )}
 
@@ -562,7 +577,7 @@ export default function UnitHomesPage() {
                     className="border-t border-slate-100 pt-5 space-y-4"
                   >
                     <div className="flex items-center justify-between">
-                      <h4 className="section-title">Edit unit details</h4>
+                      <h4 className="section-title">{t("Edit unit details")}</h4>
                       <button
                         type="button"
                         onClick={() => {
@@ -571,36 +586,36 @@ export default function UnitHomesPage() {
                         }}
                         className="btn-secondary btn-sm"
                       >
-                        Back to list
+                        {t("Back to list")}
                       </button>
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <label className="label">Wing</label>
+                        <label className="label">{t("Wing")}</label>
                         <select
                           value={editUnitWingId}
                           onChange={(e) => setEditUnitWingId(e.target.value)}
                           required
                           className="input"
                         >
-                          <option value="">Select Wing</option>
+                          <option value="">{t("Select Wing")}</option>
                           {wings.map((wing) => (
                             <option
                               key={String(wing.id)}
                               value={String(wing.id)}
                             >
-                              {String(wing.name ?? `Wing ${wing.id}`)}
+                              {String(wing.name ?? t("Wing {id}", { id: String(wing.id) }))}
                             </option>
                           ))}
                         </select>
                       </div>
                       <div>
                         <label className="label">
-                          Floor
+                          {t("Floor")}
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. 1, Ground, Parking"
+                          placeholder={t("e.g. 1, Ground, Parking")}
                           value={editUnitFloorNumber}
                           onChange={(e) =>
                             setEditUnitFloorNumber(e.target.value)
@@ -611,7 +626,7 @@ export default function UnitHomesPage() {
                       </div>
                       <div>
                         <label className="label">
-                          Unit Number
+                          {t("Unit Number")}
                         </label>
                         <input
                           type="text"
@@ -623,11 +638,11 @@ export default function UnitHomesPage() {
                       </div>
                       <div>
                         <label className="label">
-                          Parking
+                          {t("Parking")}
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. P-12, B1-04"
+                          placeholder={t("e.g. P-12, B1-04")}
                           value={editUnitParkingSlots}
                           onChange={(e) =>
                             setEditUnitParkingSlots(e.target.value)
@@ -637,7 +652,7 @@ export default function UnitHomesPage() {
                       </div>
                       <div>
                         <label className="label">
-                          Area (sq ft)
+                          {t("Area (sq ft)")}
                         </label>
                         <input
                           type="number"
@@ -652,10 +667,10 @@ export default function UnitHomesPage() {
                       disabled={isUpdatingUnit}
                       className="btn-primary"
                     >
-                      {isUpdatingUnit ? "Saving..." : "Save changes"}
+                      {isUpdatingUnit ? t("Saving...") : t("Save changes")}
                     </button>
                     {message ? (
-                      <p className={/success/i.test(message) ? "alert-success" : "alert-error"}>{message}</p>
+                      <p className={/success/i.test(message) ? "alert-success" : "alert-error"}>{t(message)}</p>
                     ) : null}
                   </form>
                 ) : unitModalView === "create-unit" ? (
@@ -665,7 +680,7 @@ export default function UnitHomesPage() {
                   >
                     <div className="flex items-center justify-between">
                       <h4 className="section-title">
-                        Unit details{selectedSlotNumber ? ` · planned unit ${selectedSlotNumber}` : ""}
+                        {selectedSlotNumber ? t("Unit details · planned unit {slot}", { slot: selectedSlotNumber }) : t("Unit details")}
                       </h4>
                       <button
                         type="button"
@@ -675,36 +690,36 @@ export default function UnitHomesPage() {
                         }}
                         className="btn-secondary btn-sm"
                       >
-                        Back to list
+                        {t("Back to list")}
                       </button>
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <label className="label">Wing</label>
+                        <label className="label">{t("Wing")}</label>
                         <select
                           value={newUnitWingId}
                           onChange={(e) => setNewUnitWingId(e.target.value)}
                           required
                           className="input"
                         >
-                          <option value="">Select Wing</option>
+                          <option value="">{t("Select Wing")}</option>
                           {wings.map((wing) => (
                             <option
                               key={String(wing.id)}
                               value={String(wing.id)}
                             >
-                              {String(wing.name ?? `Wing ${wing.id}`)}
+                              {String(wing.name ?? t("Wing {id}", { id: String(wing.id) }))}
                             </option>
                           ))}
                         </select>
                       </div>
                       <div>
                         <label className="label">
-                          Floor
+                          {t("Floor")}
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. 1, Ground, Parking"
+                          placeholder={t("e.g. 1, Ground, Parking")}
                           value={newUnitFloorNumber}
                           onChange={(e) =>
                             setNewUnitFloorNumber(e.target.value)
@@ -715,7 +730,7 @@ export default function UnitHomesPage() {
                       </div>
                       <div>
                         <label className="label">
-                          Unit Number
+                          {t("Unit Number")}
                         </label>
                         <input
                           type="text"
@@ -727,11 +742,11 @@ export default function UnitHomesPage() {
                       </div>
                       <div>
                         <label className="label">
-                          Parking
+                          {t("Parking")}
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. P-12, B1-04"
+                          placeholder={t("e.g. P-12, B1-04")}
                           value={newUnitParkingSlots}
                           onChange={(e) =>
                             setNewUnitParkingSlots(e.target.value)
@@ -741,7 +756,7 @@ export default function UnitHomesPage() {
                       </div>
                       <div>
                         <label className="label">
-                          Area (sq ft)
+                          {t("Area (sq ft)")}
                         </label>
                         <input
                           type="number"
@@ -756,10 +771,10 @@ export default function UnitHomesPage() {
                       disabled={isCreatingUnit}
                       className="btn-primary"
                     >
-                      {isCreatingUnit ? "Saving..." : "Save unit"}
+                      {isCreatingUnit ? t("Saving...") : t("Save unit")}
                     </button>
                     {message ? (
-                      <p className={/success/i.test(message) ? "alert-success" : "alert-error"}>{message}</p>
+                      <p className={/success/i.test(message) ? "alert-success" : "alert-error"}>{t(message)}</p>
                     ) : null}
                   </form>
                 ) : selectedUnit ? (
@@ -767,7 +782,7 @@ export default function UnitHomesPage() {
                     {canEditUnit ? (
                       <div className="flex justify-end">
                         <button type="button" onClick={openEditUnitForm} className="btn-secondary btn-sm">
-                          Edit unit details
+                          {t("Edit unit details")}
                         </button>
                       </div>
                     ) : null}
@@ -779,7 +794,7 @@ export default function UnitHomesPage() {
                   </>
                 ) : (
                   <button type="button" onClick={openUnitDetailsForm} className="btn-primary">
-                    Add unit details
+                    {t("Add unit details")}
                   </button>
                 )}
               </div>
