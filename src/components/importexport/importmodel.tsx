@@ -21,7 +21,7 @@ const IMPORTS = {
     path: "/v1/unit-membership/import",
     template: "/v1/unit-membership/import/template",
     templateFile: "resident-import-template.xlsx",
-    help: "One row per person. relation SELF (or empty) = owner/tenant, who needs a phone or email to log in. Wife, Son… = their family.",
+    help: "One row per person. relation SELF (or empty) = owner/tenant, who needs a phone or email to log in. Wife, Son… = their family. startDate = the day the owner bought / tenant moved in (blank = from the beginning).",
   },
   asset: {
     title: "Import Assets",
@@ -30,16 +30,39 @@ const IMPORTS = {
     templateFile: "asset-import-template.xlsx",
     help: "Assets the society already owns, one row each. Only name is required. These are not added to debits.",
   },
+  "migration-maintenance": {
+    title: "Import past maintenance",
+    path: "/v1/migration/maintenance/import",
+    template: "/v1/migration/maintenance/template",
+    templateFile: "maintenance-history-template.xlsx",
+    help: "One row per unit per month, one column per fee: write the amount paid, blank = unpaid. ownerName blank = the owner on that date (from owner start dates).",
+  },
+  "migration-credits": {
+    title: "Import past credits",
+    path: "/v1/migration/credits/import",
+    template: "/v1/migration/credits/template",
+    templateFile: "credits-history-template.xlsx",
+    help: "Money received other than maintenance. date, category and amount are required; a unit is optional.",
+  },
+  "migration-debits": {
+    title: "Import past debits",
+    path: "/v1/migration/debits/import",
+    template: "/v1/migration/debits/template",
+    templateFile: "debits-history-template.xlsx",
+    help: "With vendorName = a payment to the vendor serving on that date; without it = a society expense.",
+  },
 } as const;
 
 type Props = {
   kind: ImportKind;
   societyId: number;
   onClose: () => void;
+  // Extra template query, e.g. "month=2025-04" for the maintenance history sheet.
+  templateQuery?: string;
 };
 
 /** Pick file → Preview (dry run, nothing saved) → Import → result. */
-export default function ImportModal({ kind, societyId, onClose }: Props) {
+export default function ImportModal({ kind, societyId, onClose, templateQuery }: Props) {
   const config = IMPORTS[kind];
   const t = useT();
   const [file, setFile] = useState<File | null>(null);
@@ -70,7 +93,9 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
   const downloadTemplate = async () => {
     setError("");
     try {
-      const blob = await exportFile(`${config.template}?societyId=${societyId}`).unwrap();
+      const blob = await exportFile(
+        `${config.template}?societyId=${societyId}${templateQuery ? `&${templateQuery}` : ""}`,
+      ).unwrap();
       downloadBlob(blob, config.templateFile);
     } catch (err) {
       setError(errorMessage(err, "Template download failed."));
@@ -81,17 +106,29 @@ export default function ImportModal({ kind, societyId, onClose }: Props) {
   const willImport = (r: ImportResult) =>
     (r.insertedCount ?? 0) + (r.membershipsCreated ?? 0) + (r.familyMembersCreated ?? 0);
 
+  const INSERTED_LABEL: Partial<Record<ImportKind, string>> = {
+    unit: "units",
+    asset: "assets",
+    "migration-maintenance": "monthly entries",
+    "migration-credits": "credits",
+  };
   const summary = (r: ImportResult) =>
-    kind !== "unit-membership"
+    kind === "unit-membership"
       ? [
-          [r.insertedCount ?? 0, kind === "unit" ? "units" : "assets"],
-          [r.skipped.length, "skipped"],
-        ]
-      : [
           [r.membershipsCreated ?? 0, "owners / tenants"],
           [r.familyMembersCreated ?? 0, "family members"],
           [r.skipped.length, "skipped"],
-        ];
+        ]
+      : kind === "migration-debits"
+        ? [
+            [r.vendorPayments ?? 0, "vendor payments"],
+            [r.expenses ?? 0, "expenses"],
+            [r.skipped.length, "skipped"],
+          ]
+        : [
+            [r.insertedCount ?? 0, INSERTED_LABEL[kind] ?? "records"],
+            [r.skipped.length, "skipped"],
+          ];
 
   const step = result ? 3 : preview ? 2 : 1;
 

@@ -22,6 +22,7 @@ export type OnboardingStatus = {
     residentsImported: boolean;
     staffAdded: boolean;
     loginsActivated: boolean;
+    previousDataMigrated: boolean;
   };
   nextStep: string | null;
 };
@@ -36,10 +37,19 @@ export type ImportResult = {
   membershipsCreated?: number;
   usersCreated?: number;
   familyMembersCreated?: number;
+  // debits history import
+  vendorPayments?: number;
+  expenses?: number;
 };
 
 export type ImportArg = {
-  path: "/v1/unit/import" | "/v1/unit-membership/import" | "/v1/asset/import";
+  path:
+    | "/v1/unit/import"
+    | "/v1/unit-membership/import"
+    | "/v1/asset/import"
+    | "/v1/migration/maintenance/import"
+    | "/v1/migration/credits/import"
+    | "/v1/migration/debits/import";
   societyId: number;
   file: File;
   dryRun: boolean;
@@ -493,9 +503,21 @@ export const portalApi = createApi({
         };
       },
       transformResponse: (response: { data: ImportResult }) => response.data,
-      // An import touches wings, units, users and memberships: refresh every list.
+      // An import touches wings, units, users, memberships or (history imports) the accounts.
       invalidatesTags: (_result, _error, arg) =>
-        arg.dryRun ? [] : ["ResourceList", "Dashboard"],
+        arg.dryRun ? [] : ["ResourceList", "Dashboard", "Maintenance", "Debit", "Ledger"],
+    }),
+    /** Last year's closing balance, saved as an "Opening Balance" credit (a deficit as a debit). */
+    setOpeningBalance: builder.mutation<
+      unknown,
+      { societyId: number; amount: string; date: string; title?: string; note?: string }
+    >({
+      query: ({ societyId, ...body }) => ({
+        url: `/v1/migration/opening-balance?societyId=${societyId}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["Ledger", "Dashboard"],
     }),
     getMaintenanceSheet: builder.query<MaintenanceSheet, { societyId: number; month: string }>({
       query: ({ societyId, month }) => `/v1/maintenance-bill?societyId=${societyId}&month=${month}`,
@@ -619,6 +641,7 @@ export const {
   useRenewTenancyMutation,
   useReplaceHouseholdMutation,
   useImportFileMutation,
+  useSetOpeningBalanceMutation,
   useExportFileMutation,
   useGetMaintenanceSheetQuery,
   useGetFeeHeadsQuery,

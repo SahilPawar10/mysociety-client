@@ -327,6 +327,14 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
     fields: [],
   },
   {
+    key: "migration",
+    label: "Previous Data",
+    path: "/portal/migration",
+    description:
+      "Last onboarding step: last year's closing balance and past maintenance, credits and debits (own page: app/portal/migration).",
+    fields: [],
+  },
+  {
     key: "asset",
     label: "Assets",
     path: "/portal/asset",

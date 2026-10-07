@@ -142,8 +142,8 @@ export const crud: Record<string, string> = {
   "Import Assets": "मालमत्ता आयात करा",
   "One row per flat. New wing names are created automatically.":
     "प्रत्येक फ्लॅटसाठी एक ओळ. नवीन विंगची नावे आपोआप तयार होतात.",
-  "One row per person. relation SELF (or empty) = owner/tenant, who needs a phone or email to log in. Wife, Son… = their family.":
-    "प्रत्येक व्यक्तीसाठी एक ओळ. relation SELF (किंवा रिकामे) = मालक/भाडेकरू, ज्यांना लॉगिनसाठी फोन किंवा ईमेल लागतो. Wife, Son… = त्यांचे कुटुंब.",
+  "One row per person. relation SELF (or empty) = owner/tenant, who needs a phone or email to log in. Wife, Son… = their family. startDate = the day the owner bought / tenant moved in (blank = from the beginning).":
+    "प्रत्येक व्यक्तीसाठी एक ओळ. relation SELF (किंवा रिकामे) = मालक/भाडेकरू, ज्यांना लॉगिनसाठी फोन किंवा ईमेल लागतो. Wife, Son… = त्यांचे कुटुंब. startDate = मालकाने फ्लॅट घेतल्याचा / भाडेकरू राहायला आल्याचा दिवस (रिकामे = सुरुवातीपासून).",
   "Assets the society already owns, one row each. Only name is required. These are not added to debits.":
     "सोसायटीकडे आधीपासून असलेली मालमत्ता, प्रत्येकी एक ओळ. फक्त नाव आवश्यक आहे. ही खर्चात जोडली जात नाही.",
   "Choose file": "फाइल निवडा",

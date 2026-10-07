@@ -16,7 +16,7 @@ const MEMBER_RESOURCES = ["complaint", "maintenance-bill", "staff", "asset"];
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "Society", keys: ["society", "subscription", "wing", "unit", "unit-membership", "family-member", "staff", "user"] },
   { title: "Maintenance", keys: ["maintenance-bill", "essential-service", "vendor"] },
-  { title: "Finance", keys: ["accounts", "asset"] },
+  { title: "Finance", keys: ["accounts", "asset", "migration"] },
   { title: "Help desk", keys: ["complaint"] },
 ];
 

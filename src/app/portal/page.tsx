@@ -154,6 +154,13 @@ function OnboardingStatusCard({ societyId }: { societyId: number }) {
       href: null,
       action: "Share the portal link; residents sign in with their registered email.",
     },
+    {
+      done: data.steps.previousDataMigrated,
+      title: "Migrate previous data",
+      detail: t("Last year's closing balance, past maintenance, credits & debits"),
+      href: "/portal/migration",
+      action: "Open Previous Data → Import",
+    },
   ];
   const doneCount = steps.filter((s) => s.done).length;
 
