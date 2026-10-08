@@ -8,6 +8,7 @@ import {
   type ResourceRecord,
 } from "@/lib/features/portal/portalApi";
 import { useAppSelector } from "@/lib/hooks";
+import { can } from "@/lib/permissions";
 import ImportExportActions from "@/components/importexport/page";
 import UnitHouseholdPanel from "@/components/unit/UnitHouseholdPanel";
 import { errorMessage } from "@/lib/api";
@@ -70,7 +71,6 @@ export default function UnitHomesPage() {
   const user = useAppSelector((state) => state.auth.user);
   const role = String(user?.role ?? "").toUpperCase();
   const isSuperAdmin = role === "SUPER_ADMIN";
-  const isSocietyAdmin = role === "SOCIETY_ADMIN";
 
   const [selectedSocietyId, setSelectedSocietyId] = useState<string>("");
   const [selectedWingId, setSelectedWingId] = useState<string>("");
@@ -92,7 +92,7 @@ export default function UnitHomesPage() {
   const [message, setMessage] = useState("");
 
   const ownSocietyId = toNumber(user?.societyId);
-  const effectiveSocietyId = isSocietyAdmin
+  const effectiveSocietyId = !isSuperAdmin
     ? ownSocietyId
     : selectedSocietyId
       ? Number(selectedSocietyId)
@@ -233,7 +233,7 @@ export default function UnitHomesPage() {
     return Number.isFinite(slot) ? slot : null;
   }, [selectedUnitId]);
 
-  const canEditUnit = isSuperAdmin || isSocietyAdmin;
+  const canEditUnit = can(user, "unit", "edit");
 
   // An empty planned slot opens the unit details form directly; saving creates the unit.
   const openUnitDetailsForm = () => {

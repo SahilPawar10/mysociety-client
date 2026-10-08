@@ -8,7 +8,10 @@ export type ResourceRecord = Record<string, unknown> & { id?: number | string };
 export type OnboardingStatus = {
   society: { id: number; name: string; wingsCount: number };
   wings: number;
+  /** Sum of each wing's declared unit count. */
   units: number;
+  /** Units actually saved (imported/added) so far. */
+  savedUnits: number;
   occupiedUnits: number;
   vacantUnits: number;
   users: number;
@@ -25,6 +28,14 @@ export type OnboardingStatus = {
     previousDataMigrated: boolean;
   };
   nextStep: string | null;
+};
+
+type PlatformCounts = { units: number; occupiedUnits: number; members: number; users: number; activeUsers: number };
+
+/** GET /v1/society/stats (super admin). */
+export type PlatformStats = {
+  totals: PlatformCounts & { societies: number };
+  societies: (PlatformCounts & { id: number; name: string; city: string | null })[];
 };
 
 /** Response of POST /v1/unit/import and /v1/unit-membership/import. */
@@ -296,6 +307,11 @@ export const portalApi = createApi({
       transformResponse: (response: { data: OnboardingStatus }) => response.data,
       providesTags: ["Dashboard"],
     }),
+    getPlatformStats: builder.query<PlatformStats, void>({
+      query: () => "/v1/society/stats",
+      transformResponse: (response: { data: PlatformStats }) => response.data,
+      providesTags: ["Dashboard", { type: "ResourceList", id: "society" }],
+    }),
     getResourceList: builder.query<ResourceRecord[], ResourceListArg>({
       async queryFn({ resource, societyId, wingId }, api, _extraOptions, baseQuery) {
         const user = (api.getState() as ApiState).auth.user;
@@ -456,6 +472,13 @@ export const portalApi = createApi({
       ],
     }),
     /** Tenant moves out / owner leaves (kept in history). */
+    /** Admin: user's password becomes the default one; they must change it at next login. */
+    resetUserPassword: builder.mutation<{ message: string }, { id: number | string; societyId?: number }>({
+      query: ({ id, societyId }) => ({
+        url: `/v1/user/${id}/reset-password${societyId ? `?societyId=${societyId}` : ""}`,
+        method: "POST",
+      }),
+    }),
     endMembership: builder.mutation<ResourceRecord, { id: number; societyId: number; endDate: string }>({
       query: ({ id, societyId, endDate }) => ({
         url: `/v1/unit-membership/${id}/end?societyId=${societyId}`,
@@ -629,6 +652,7 @@ export const portalApi = createApi({
 
 export const {
   useGetOnboardingStatusQuery,
+  useGetPlatformStatsQuery,
   useGetResourceListQuery,
   useGetUnitMembershipHistoryQuery,
   useCreateResourceMutation,
@@ -637,6 +661,7 @@ export const {
   useDeleteResourceMutation,
   usePurchaseSubscriptionMutation,
   useSetupSocietyMutation,
+  useResetUserPasswordMutation,
   useEndMembershipMutation,
   useRenewTenancyMutation,
   useReplaceHouseholdMutation,

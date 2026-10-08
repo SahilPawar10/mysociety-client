@@ -13,11 +13,12 @@ import { auth } from "../../../firebase";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { clearAuthError } from "@/lib/features/auth/authSlice";
 import { errorMessage } from "@/lib/api";
+import { isPhoneLogin, toLoginEmail } from "@/lib/features/auth/authApi";
 
 /**
  * People never register here: the society admin adds them (import or form) with their email.
- * They sign in with that verified email (password or Google), and the backend links the account.
- * Mobile OTP login was removed from this page; the backend still accepts it if it comes back.
+ * They sign in with that email or mobile + password (or Google), and the backend links the account.
+ * A mobile number signs in as <digits>@PHONE_LOGIN_DOMAIN; its password comes from an admin reset.
  */
 export default function SignInPage() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function SignInPage() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [email, setEmail] = useState("");
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [isNewPassword, setIsNewPassword] = useState(false);
 
@@ -53,11 +54,27 @@ export default function SignInPage() {
 
   const emailLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    return attempt(() =>
-      isNewPassword
-        ? createUserWithEmailAndPassword(auth, email, password)
-        : signInWithEmailAndPassword(auth, email, password),
-    );
+    const loginEmail = toLoginEmail(loginId);
+    if (!loginEmail) {
+      return setError("Enter a valid email or 10-digit mobile number.");
+    }
+    // Mobile logins are created by the admin's password reset; there's no email to verify.
+    if (isNewPassword && isPhoneLogin(loginEmail)) {
+      return setError("For mobile login, ask your society admin to reset your password, then sign in with pass@123.");
+    }
+    return attempt(async () => {
+      try {
+        await (isNewPassword
+          ? createUserWithEmailAndPassword(auth, loginEmail, password)
+          : signInWithEmailAndPassword(auth, loginEmail, password));
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        if (code === "auth/invalid-credential" || code === "auth/user-not-found" || code === "auth/wrong-password") {
+          throw new Error("Wrong email/mobile or password.");
+        }
+        throw err;
+      }
+    });
   };
 
   const message = error || authError;
@@ -91,17 +108,18 @@ export default function SignInPage() {
         <div className="w-full max-w-sm">
           <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Welcome back</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Sign in with the email your society admin registered.
+            Sign in with the email or mobile number your society admin registered.
           </p>
 
           <div className="mt-8">
             <form onSubmit={emailLogin} className="space-y-3">
               <input
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                type="text"
+                autoComplete="username"
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
+                placeholder="Email or mobile number"
+                aria-label="Email or mobile number"
                 required
                 className="input"
               />
@@ -121,7 +139,7 @@ export default function SignInPage() {
                   onChange={(e) => setIsNewPassword(e.target.checked)}
                   className="mt-0.5"
                 />
-                First time here? Set a password. We&apos;ll email you a verification link.
+                First time here with an email? Set a password. We&apos;ll email you a verification link.
               </label>
               <button type="submit" disabled={loading} className="btn-primary w-full">
                 {isNewPassword ? "Create password" : "Sign in"}

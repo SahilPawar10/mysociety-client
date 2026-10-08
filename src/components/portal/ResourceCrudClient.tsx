@@ -5,6 +5,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   useCreateResourceMutation,
   useDeleteResourceMutation,
+  useResetUserPasswordMutation,
   useGetResourceListQuery,
   useUpdateResourceMutation,
   type ResourceRecord,
@@ -16,6 +17,7 @@ import {
   type TableColumn,
 } from "@/lib/features/portal/resourceConfig";
 import { useAppSelector } from "@/lib/hooks";
+import { can } from "@/lib/permissions";
 import ImportExportActions from "@/components/importexport/page";
 import { errorMessage } from "@/lib/api";
 import { useT, type TFunction } from "@/lib/i18n";
@@ -143,17 +145,10 @@ export default function ResourceCrudClient({ resource }: Props) {
     useUpdateResourceMutation();
   const [deleteResource, { isLoading: isDeleting }] =
     useDeleteResourceMutation();
+  const [resetUserPassword] = useResetUserPasswordMutation();
 
-  const canWrite = useMemo(() => {
-    if (isSuperAdmin) {
-      return true;
-    }
-    if (isSocietyAdmin) {
-      return true;
-    }
-    // Members may only raise complaints.
-    return resource === "complaint";
-  }, [isSocietyAdmin, isSuperAdmin, resource]);
+  // Admins can do everything; members what the society admin granted on this tab.
+  const canWrite = can(user, resource, "create");
 
   const canCreate = useMemo(() => {
     if (!canWrite) {
@@ -174,18 +169,8 @@ export default function ResourceCrudClient({ resource }: Props) {
     selectedSocietyId,
   ]);
 
-  // Editing and deleting stay admin-only (members only add complaints).
-  const canEdit = isSuperAdmin || isSocietyAdmin;
-
-  const canDelete = useMemo(() => {
-    if (!canEdit) {
-      return false;
-    }
-    if (isSocietyAdmin && resource === "society") {
-      return false;
-    }
-    return true;
-  }, [canEdit, isSocietyAdmin, resource]);
+  const canEdit = can(user, resource, "edit");
+  const canDelete = can(user, resource, "delete") && !(isSocietyAdmin && resource === "society");
 
   const visibleFields = useMemo(() => {
     if (!config) {
@@ -578,6 +563,18 @@ export default function ResourceCrudClient({ resource }: Props) {
     );
   };
 
+  const confirmResetPassword = async (row: ResourceRecord) => {
+    if (row.id === undefined || !window.confirm(t("Reset {name}'s password to pass@123?", { name: String(row.name ?? "") }))) {
+      return;
+    }
+    try {
+      await resetUserPassword({ id: row.id, societyId: isSuperAdmin ? effectiveSocietyId : undefined }).unwrap();
+      setFeedback("Password reset successfully. They must set a new one at next login.");
+    } catch (error) {
+      setFeedback(errorMessage(error, "Password reset failed."));
+    }
+  };
+
   const confirmDelete = (id: number | string | undefined) => {
     if (window.confirm(t("Delete this record? This cannot be undone."))) {
       onDelete(id);
@@ -681,7 +678,7 @@ export default function ResourceCrudClient({ resource }: Props) {
                   {tableDisplayColumns.map((field) => (
                     <th key={field.name}>{t(field.label)}</th>
                   ))}
-                  {canEdit ? <th className="text-right">{t("Actions")}</th> : null}
+                  {canEdit || canDelete ? <th className="text-right">{t("Actions")}</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -698,12 +695,23 @@ export default function ResourceCrudClient({ resource }: Props) {
                         )}
                       </td>
                     ))}
-                    {canEdit ? (
+                    {canEdit || canDelete ? (
                       <td className="whitespace-nowrap text-right">
                         <div className="inline-flex gap-2">
-                          <button type="button" onClick={() => openEdit(row)} className="btn-secondary btn-sm">
-                            {t("Edit")}
-                          </button>
+                          {canEdit ? (
+                            <button type="button" onClick={() => openEdit(row)} className="btn-secondary btn-sm">
+                              {t("Edit")}
+                            </button>
+                          ) : null}
+                          {resource === "user" && (row.email || row.phone) ? (
+                            <button
+                              type="button"
+                              onClick={() => confirmResetPassword(row)}
+                              className="btn-secondary btn-sm"
+                            >
+                              {t("Reset password")}
+                            </button>
+                          ) : null}
                           {canDelete ? (
                             <button
                               type="button"
@@ -737,7 +745,7 @@ export default function ResourceCrudClient({ resource }: Props) {
         </div>
       ) : null}
 
-      {isApiEnabled && isFormOpen && canWrite ? (
+      {isApiEnabled && isFormOpen && (canWrite || canEdit) ? (
         <div className="modal-backdrop" onClick={closeForm}>
           <form onSubmit={onSubmit} className="modal max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4">

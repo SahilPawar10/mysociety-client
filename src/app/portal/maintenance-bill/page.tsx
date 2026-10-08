@@ -14,6 +14,7 @@ import {
   type MaintenanceStatus,
 } from "@/lib/features/portal/portalApi";
 import { useAppSelector } from "@/lib/hooks";
+import { can } from "@/lib/permissions";
 import { errorMessage } from "@/lib/api";
 import { useLang, useT } from "@/lib/i18n";
 import { downloadReceipt } from "./receipt";
@@ -34,7 +35,9 @@ type Row = MaintenanceSheet["units"][number];
 export default function MaintenancePage() {
   const user = useAppSelector((state) => state.auth.user);
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
-  const isAdmin = isSuperAdmin || user?.role === "SOCIETY_ADMIN";
+  // Recording a payment is "create", changing the fee setup is "edit".
+  const isAdmin = can(user, "maintenance-bill", "create");
+  const canSetup = can(user, "maintenance-bill", "edit");
   const t = useT();
   const locale = useLang() === "mr" ? "mr-IN" : "en-IN";
 
@@ -94,7 +97,7 @@ export default function MaintenancePage() {
               {t("Blank receipt")}
             </button>
           ) : null}
-          {isAdmin && societyId ? (
+          {canSetup && societyId ? (
             <>
               <button type="button" className="btn-secondary" onClick={() => setEditing("month")}>
                 {t("This month's fees")}
@@ -117,7 +120,7 @@ export default function MaintenancePage() {
         <p className="alert-error">{errorMessage(error, t("Failed to load maintenance."))}</p>
       ) : (
         <>
-          {isAdmin && !setupHeads.length ? (
+          {canSetup && !setupHeads.length ? (
             <div className="alert-warn flex items-center justify-between gap-3">
               <span>{t("Set up the fees you collect every month (Maintenance, Sinking Fund, Water…).")}</span>
               <button type="button" className="btn-primary btn-sm" onClick={() => setEditing("setup")}>

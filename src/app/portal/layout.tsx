@@ -9,9 +9,8 @@ import { useAppSelector } from "@/lib/hooks";
 import { RESOURCE_CONFIGS } from "@/lib/features/portal/resourceConfig";
 import { useT } from "@/lib/i18n";
 import LanguageChooser from "@/components/portal/LanguageChooser";
-
-// What a MEMBER may open; the backend refuses the rest (users, memberships, family members…).
-const MEMBER_RESOURCES = ["complaint", "maintenance-bill", "staff", "asset"];
+import { can, isAdminRole } from "@/lib/permissions";
+import ForcePasswordChange from "@/components/auth/ForcePasswordChange";
 
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "Society", keys: ["society", "subscription", "wing", "unit", "unit-membership", "family-member", "staff", "user"] },
@@ -50,7 +49,8 @@ export default function PortalLayout({
       if (role === "SOCIETY_ADMIN") {
         return resource.key !== "subscription";
       }
-      return MEMBER_RESOURCES.includes(resource.key);
+      // Members: the tabs the society admin opened for them (the API enforces the same).
+      return can(user, resource.key, "view");
     });
 
     const overview: NavItem[] = [{ href: "/portal", label: t("Dashboard") }];
@@ -66,9 +66,12 @@ export default function PortalLayout({
           .filter((resource) => group.keys.includes(resource.key))
           .map((resource) => ({ href: resource.path, label: t(resource.label) })),
       })),
+      ...(isAdminRole(role)
+        ? [{ title: t("Access"), items: [{ href: "/portal/permissions", label: t("Roles & permissions") }] }]
+        : []),
       { title: t("Account"), items: [{ href: "/portal/profile", label: t("Profile") }] },
     ].filter((section) => section.items.length > 0);
-  }, [isSuperAdmin, role, t]);
+  }, [isSuperAdmin, role, user, t]);
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -86,6 +89,11 @@ export default function PortalLayout({
         {t("Loading your society...")}
       </div>
     );
+  }
+
+  // After an admin password reset nothing else opens until a new password is set.
+  if (user?.mustChangePassword) {
+    return <ForcePasswordChange />;
   }
 
   const isActive = (href: string) =>
