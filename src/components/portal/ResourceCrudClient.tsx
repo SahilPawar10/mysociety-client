@@ -177,16 +177,9 @@ export default function ResourceCrudClient({ resource }: Props) {
       return [];
     }
 
-    return config.fields.filter((field) => {
-      if (
-        (isSocietyAdmin || needsSocietySelector) &&
-        field.name === "societyId"
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [config, isSocietyAdmin, needsSocietySelector]);
+    // The society comes from the login, or the SUPER_ADMIN selector; never a form field.
+    return config.fields.filter((field) => field.name !== "societyId");
+  }, [config]);
 
   const formFields =
     editingId !== null ? visibleFields.filter((field) => !field.createOnly) : visibleFields;
@@ -359,7 +352,7 @@ export default function ResourceCrudClient({ resource }: Props) {
       }
       payload.societyId = Number(selectedSocietyId);
     } else if (
-      isSocietyAdmin &&
+      !isSuperAdmin &&
       Number.isFinite(societyId) &&
       resource !== "society"
     ) {

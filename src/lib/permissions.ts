@@ -23,9 +23,17 @@ export type Permissions = Partial<Record<string, PermissionAction[]>>;
 export const isAdminRole = (role?: string | null) =>
   role === "SUPER_ADMIN" || role === "SOCIETY_ADMIN";
 
-/** Admins can do everything; members only what the society admin granted. */
+/** What every member gets for their own household, whatever was granted (the API scopes it). */
+const SELF_SERVICE: Permissions = {
+  "family-member": ["view", "create", "edit"],
+  "maintenance-bill": ["view"],
+};
+
+/** Admins can do everything; members only what the society admin granted, plus self-service. */
 export const can = (user: AuthUser | null | undefined, module: string, action: PermissionAction) =>
-  isAdminRole(user?.role) || Boolean(user?.permissions?.[module]?.includes(action));
+  isAdminRole(user?.role) ||
+  Boolean(user?.permissions?.[module]?.includes(action)) ||
+  Boolean(user && SELF_SERVICE[module]?.includes(action));
 
 export const useCan = () => {
   const user = useAppSelector((state) => state.auth.user);

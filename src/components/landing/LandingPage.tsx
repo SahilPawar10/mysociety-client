@@ -18,7 +18,7 @@ const T = {
     demo: "Book a free demo",
     signin: "Sign in",
     demoMessage: "Hi, I would like a demo of MySociety for our society.",
-    trust: ["No manual calculation", "Secure email & Google login", "Mobile app coming soon"],
+    trust: ["No manual calculation", "Login with mobile number or email", "Mobile app coming soon"],
     mock: {
       title: "Maintenance · October",
       collected: "Collected",
@@ -56,17 +56,20 @@ const T = {
       ["Vendors & services", "Waste management, water supply, lift, electricity and more — vendor details, payments and printable vouchers."],
       ["Complaint help desk", "Residents raise complaints from their phone; the committee tracks each one till it is resolved."],
       ["Asset register", "Keep track of society assets — pumps, generators, CCTV, furniture and more."],
+      ["Roles & permissions", "Choose exactly which tabs each member can see or edit. Reset a forgotten password in one click."],
+      ["Bring your old books", "Import previous years' collections, expenses and balances from Excel. Preview first; re-uploads never duplicate."],
+      ["Residents help themselves", "Each resident sees only their own flat's bills and receipts, and keeps their family details up to date."],
     ],
     howTitle: "Live in 3 simple steps",
     steps: [
       ["Set up your society", "Wings, flats and your own maintenance structure."],
       ["Import your members", "Upload your existing Excel list of owners and tenants — no retyping."],
-      ["Start collecting", "Generate bills, record payments, share receipts. Residents log in with their email."],
+      ["Start collecting", "Generate bills, record payments, share receipts. Residents log in with their mobile number or email."],
     ],
     rolesTitle: "One platform, two views",
     roles: [
-      ["For the committee", ["Set and edit maintenance anytime", "See who paid and who is pending", "Society balance, credits and debits", "Staff salaries and vendor records", "Owner, tenant and family details"]],
-      ["For residents", ["See your maintenance bills and dues", "Download receipts anytime", "Raise complaints from your phone", "Society staff contacts"]],
+      ["For the committee", ["Set and edit maintenance anytime", "See who paid and who is pending", "Society balance, credits and debits", "Staff salaries and vendor records", "Owner, tenant and family details", "Decide what each member can access"]],
+      ["For residents", ["See only your own flat's bills and receipts", "Add and update your family details", "Raise complaints from your phone", "Society staff contacts"]],
     ],
     whyTitle: "Why societies choose MySociety",
     why: [
@@ -81,7 +84,7 @@ const T = {
       ["What happens when a security guard or staff member changes?", "Add the new person and mark the old one as left. Their details and salary history stay on record."],
       ["Can we see who hasn't paid maintenance?", "Yes. Paid and pending are shown flat by flat, with totals calculated for you."],
       ["Is there a mobile app?", "A mobile app is on the way. Meanwhile MySociety works in any phone or computer browser."],
-      ["We already have our data in Excel. Can we move it?", "Yes. Flats and members can be imported directly from Excel, so you don't have to type everything again."],
+      ["We already have our data in Excel. Can we move it?", "Yes. Flats, members and even previous years' collections, expenses and balances can be imported directly from Excel, so you don't have to type everything again."],
       ["Is our society's data safe?", "Yes. Sign-in is secure, every society's data is kept separate, and residents can only see what is meant for them."],
     ],
     ctaTitle: "Ready to stop calculating and start managing?",
@@ -97,7 +100,7 @@ const T = {
     demo: "मोफत डेमो बुक करा",
     signin: "लॉगिन करा",
     demoMessage: "नमस्कार, आमच्या सोसायटीसाठी MySociety चा डेमो हवा आहे.",
-    trust: ["हाताने हिशोब नको", "ईमेल व Google ने सुरक्षित लॉगिन", "मोबाईल ॲप लवकरच"],
+    trust: ["हाताने हिशोब नको", "मोबाईल नंबर किंवा ईमेलने लॉगिन", "मोबाईल ॲप लवकरच"],
     mock: {
       title: "मेंटेनन्स · ऑक्टोबर",
       collected: "जमा",
@@ -135,17 +138,20 @@ const T = {
       ["व्हेंडर आणि सेवा", "कचरा व्यवस्थापन, पाणीपुरवठा, लिफ्ट, वीज आणि इतर — व्हेंडरची माहिती, पेमेंट आणि छापण्यायोग्य व्हाउचर."],
       ["तक्रार निवारण", "रहिवासी फोनवरून तक्रार नोंदवतात; कमिटी ती सुटेपर्यंत पाठपुरावा करते."],
       ["मालमत्ता नोंदवही", "पंप, जनरेटर, CCTV, फर्निचर अशा सोसायटीच्या मालमत्तेची नोंद ठेवा."],
+      ["भूमिका आणि परवानग्या", "प्रत्येक सदस्याला कोणते टॅब दिसतील किंवा बदलता येतील ते तुम्ही ठरवा. विसरलेला पासवर्ड एका क्लिकमध्ये रीसेट करा."],
+      ["जुना हिशोब आणा", "मागील वर्षांची वसुली, खर्च आणि शिल्लक Excel मधून आयात करा. आधी तपासा; पुन्हा अपलोड केले तरी डुप्लिकेट होत नाही."],
+      ["रहिवाशांची स्वतःची सोय", "प्रत्येक रहिवाशाला फक्त स्वतःच्या फ्लॅटची बिले आणि पावत्या दिसतात, आणि ते आपल्या कुटुंबाची माहिती स्वतः अद्ययावत ठेवतात."],
     ],
     howTitle: "फक्त 3 सोप्या पायऱ्यांमध्ये सुरू करा",
     steps: [
       ["सोसायटी सेट करा", "विंग, फ्लॅट आणि तुमची स्वतःची मेंटेनन्स रचना."],
       ["सदस्य आयात करा", "मालक आणि भाडेकरूंची सध्याची Excel यादी अपलोड करा — पुन्हा टाइप करण्याची गरज नाही."],
-      ["वसुली सुरू करा", "बिल तयार करा, पेमेंट नोंदवा, पावत्या शेअर करा. रहिवासी त्यांच्या ईमेलने लॉगिन करतात."],
+      ["वसुली सुरू करा", "बिल तयार करा, पेमेंट नोंदवा, पावत्या शेअर करा. रहिवासी मोबाईल नंबर किंवा ईमेलने लॉगिन करतात."],
     ],
     rolesTitle: "एक प्लॅटफॉर्म, दोन दृष्टिकोन",
     roles: [
-      ["कमिटीसाठी", ["मेंटेनन्स ठरवा आणि कधीही बदला", "कोणी भरले, कोणाचे बाकी ते पाहा", "सोसायटीची शिल्लक, जमा आणि खर्च", "कर्मचारी पगार आणि व्हेंडर नोंदी", "मालक, भाडेकरू आणि कुटुंबीयांची माहिती"]],
-      ["रहिवाशांसाठी", ["तुमची मेंटेनन्स बिले आणि बाकी पाहा", "कधीही पावती डाउनलोड करा", "फोनवरून तक्रार नोंदवा", "सोसायटी कर्मचाऱ्यांचे संपर्क"]],
+      ["कमिटीसाठी", ["मेंटेनन्स ठरवा आणि कधीही बदला", "कोणी भरले, कोणाचे बाकी ते पाहा", "सोसायटीची शिल्लक, जमा आणि खर्च", "कर्मचारी पगार आणि व्हेंडर नोंदी", "मालक, भाडेकरू आणि कुटुंबीयांची माहिती", "प्रत्येक सदस्याला काय दिसेल ते ठरवा"]],
+      ["रहिवाशांसाठी", ["फक्त तुमच्या फ्लॅटची बिले आणि पावत्या पाहा", "कुटुंबीयांची माहिती जोडा व बदला", "फोनवरून तक्रार नोंदवा", "सोसायटी कर्मचाऱ्यांचे संपर्क"]],
     ],
     whyTitle: "सोसायट्या MySociety का निवडतात",
     why: [
@@ -160,7 +166,7 @@ const T = {
       ["सिक्युरिटी गार्ड किंवा कर्मचारी बदलला तर काय?", "नवीन व्यक्ती जोडा आणि जुन्याला 'सोडून गेले' म्हणून नोंदवा. त्यांची माहिती आणि पगाराचा इतिहास जपला जातो."],
       ["कोणी मेंटेनन्स भरला नाही ते पाहता येईल का?", "हो. प्रत्येक फ्लॅटनुसार भरलेले आणि बाकी दिसते, एकूण रक्कम आपोआप मोजली जाते."],
       ["मोबाईल ॲप आहे का?", "मोबाईल ॲप लवकरच येत आहे. तोपर्यंत MySociety कोणत्याही फोन किंवा कॉम्प्युटरच्या ब्राउझरमध्ये चालते."],
-      ["आमचा डेटा Excel मध्ये आहे. तो आणता येईल का?", "हो. फ्लॅट आणि सदस्य थेट Excel मधून आयात करता येतात, त्यामुळे सर्व पुन्हा टाइप करावे लागत नाही."],
+      ["आमचा डेटा Excel मध्ये आहे. तो आणता येईल का?", "हो. फ्लॅट, सदस्य आणि मागील वर्षांची वसुली, खर्च व शिल्लकही थेट Excel मधून आयात करता येते, त्यामुळे सर्व पुन्हा टाइप करावे लागत नाही."],
       ["आमच्या सोसायटीचा डेटा सुरक्षित आहे का?", "हो. लॉगिन सुरक्षित आहे, प्रत्येक सोसायटीचा डेटा वेगळा ठेवला जातो आणि रहिवाशांना फक्त त्यांच्यासाठीची माहिती दिसते."],
     ],
     ctaTitle: "हिशोब थांबवा, व्यवस्थापन सुरू करा",
@@ -169,7 +175,7 @@ const T = {
   },
 } as const;
 
-const FEATURE_ICONS = ["⚙️", "✅", "🧾", "📊", "👨‍👩‍👧", "👮", "🚛", "🛠️", "📦"];
+const FEATURE_ICONS = ["⚙️", "✅", "🧾", "📊", "👨‍👩‍👧", "👮", "🚛", "🛠️", "📦", "🔐", "📂", "🏠"];
 const WHY_ICONS = ["⏱️", "📖", "अ", "🔒"];
 
 const MOCK_ROWS: [string, boolean][] = [

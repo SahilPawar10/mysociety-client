@@ -16,6 +16,7 @@ export const billing: Record<string, string> = {
   Unpaid: "न भरलेले",
   "units with dues": "थकबाकी असलेली युनिट",
   "No units yet.": "अजून कोणतेही युनिट नाही.",
+  "No paid bills for this month.": "या महिन्याचे कोणतेही भरलेले बिल नाही.",
   "Wing {wing}": "विंग {wing}",
   PAID: "भरले",
   PARTIAL: "अर्धवट",

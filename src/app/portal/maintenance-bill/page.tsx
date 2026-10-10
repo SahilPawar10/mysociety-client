@@ -14,7 +14,7 @@ import {
   type MaintenanceStatus,
 } from "@/lib/features/portal/portalApi";
 import { useAppSelector } from "@/lib/hooks";
-import { can } from "@/lib/permissions";
+import { can, isAdminRole } from "@/lib/permissions";
 import { errorMessage } from "@/lib/api";
 import { useLang, useT } from "@/lib/i18n";
 import { downloadReceipt } from "./receipt";
@@ -146,7 +146,9 @@ export default function MaintenancePage() {
 
           <div className="space-y-6">
               {!data.units.length ? (
-                <div className="card p-10 text-center text-slate-500">{t("No units yet.")}</div>
+                <div className="card p-10 text-center text-slate-500">
+                  {isAdminRole(user?.role) ? t("No units yet.") : t("No paid bills for this month.")}
+                </div>
               ) : null}
               {/* Same tile grid as the Units tab, one block per wing (rows arrive sorted by wing). */}
               {[...new Set(data.units.map((u) => u.wingName))].map((wing) => (
@@ -161,10 +163,15 @@ export default function MaintenancePage() {
                         <button
                           key={row.unitId}
                           type="button"
-                          disabled={!isAdmin}
-                          onClick={() => setEditing(row)}
+                          // Members: their own paid entries, a click downloads the receipt.
+                          disabled={!isAdmin && !row.billId}
+                          onClick={() =>
+                            isAdmin
+                              ? setEditing(row)
+                              : downloadReceipt(data.society, month, data.heads, row)
+                          }
                           className={`text-left card p-4 transition disabled:cursor-default ${
-                            isAdmin ? "hover:-translate-y-0.5 hover:shadow-md hover:border-brand-300" : ""
+                            isAdmin || row.billId ? "hover:-translate-y-0.5 hover:shadow-md hover:border-brand-300" : ""
                           }`}
                         >
                           <span className={`badge ${STATUS_STYLE[row.status]}`}>{t(row.status)}</span>
@@ -178,11 +185,13 @@ export default function MaintenancePage() {
                           <p className="mt-1 text-base font-semibold text-slate-900">
                             {money(row.paidAmount)}
                           </p>
-                          {isAdmin ? (
-                            <p className="mt-2 text-xs font-medium text-brand-700">
-                              {row.billId ? t("Edit entry") : t("+ Add entry")}
-                            </p>
-                          ) : null}
+                          <p className="mt-2 text-xs font-medium text-brand-700">
+                            {isAdmin
+                              ? row.billId
+                                ? t("Edit entry")
+                                : t("+ Add entry")
+                              : t("Download receipt")}
+                          </p>
                         </button>
                       ))}
                   </div>
